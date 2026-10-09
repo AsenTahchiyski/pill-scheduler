@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { TabBar, type TabId } from './components/TabBar';
 import type { Settings } from './db/types';
 import { useAutoBackup } from './hooks/useAutoBackup';
+import { useBackLayer } from './hooks/useBackLayer';
 import { useData } from './hooks/useData';
 import { useReminders } from './hooks/useReminders';
 import type { PayloadData } from './lib/backup';
@@ -26,6 +27,7 @@ export function App() {
   );
 
   useAutoBackup(data);
+  useBackLayer(tab !== 'today', () => setTab('today'));
   useReminders(settings?.language ?? 'bg', people, medicines, doses);
 
   if (!data) return <Splash />;

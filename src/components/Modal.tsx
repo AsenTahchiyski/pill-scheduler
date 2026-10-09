@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect } from 'react';
+import { useBackLayer } from '../hooks/useBackLayer';
 
 interface Props {
   open: boolean;
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function Modal({ open, onClose, title, children }: Props) {
+  useBackLayer(open, onClose, 1);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
