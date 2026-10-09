@@ -64,13 +64,27 @@ export function pickMeals(meals: Meal[], count: number): Meal[] {
   return sorted.filter((_, i) => idx.has(i));
 }
 
+/**
+ * Meals a meal-based timing lands on: the chosen ones, or `count` picked
+ * automatically when none were chosen or every chosen meal has since been
+ * deleted from the schedule. An explicitly empty choice means no doses.
+ */
+export function timingMeals(timing: Extract<Timing, { mode: 'meals' }>, meals: Meal[]): Meal[] {
+  if (timing.mealIds) {
+    if (timing.mealIds.length === 0) return [];
+    const chosen = meals.filter((m) => timing.mealIds!.includes(m.id));
+    if (chosen.length > 0) return chosen;
+  }
+  return pickMeals(meals, timing.count);
+}
+
 /** Dose times on any active day, sorted. */
 export function doseTimes(timing: Timing, person: Person | undefined): ScheduledDose[] {
   let out: ScheduledDose[];
   if (timing.mode === 'times') {
     out = timing.times.map((time) => ({ time }));
   } else if (timing.mode === 'meals') {
-    out = pickMeals(person?.meals ?? [], timing.count).map((meal) => ({
+    out = timingMeals(timing, person?.meals ?? []).map((meal) => ({
       time: mealDoseTime(timing, meal),
       meal
     }));

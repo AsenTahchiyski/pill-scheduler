@@ -1,7 +1,10 @@
 import type { Timing } from '../db/types';
 
-/** "How often" choices in the medicine form. Numbers are doses per day. */
-export type Often = 1 | 2 | 3 | 'every8h' | 'custom';
+/**
+ * "How often" choices in the medicine form. Numbers are doses per day (chips
+ * offer 1–3; picking more meals by hand can make it larger).
+ */
+export type Often = number | 'every8h' | 'custom';
 
 export const OFTEN_COUNTS = [1, 2, 3] as const;
 
@@ -27,7 +30,7 @@ const same = (a: number[], b: number[]) =>
 export function oftenOf(timing: Timing): Often {
   if (timing.mode === 'sleep') return 1;
   if (timing.mode === 'meals') {
-    return timing.count >= 1 && timing.count <= 3 ? (timing.count as 1 | 2 | 3) : 'custom';
+    return timing.count;
   }
   if (same(timing.times, EVERY_8H)) return 'every8h';
   for (const n of OFTEN_COUNTS) if (same(timing.times, defaultTimes(n))) return n;

@@ -3,11 +3,18 @@ import { LOCALE, translate } from './i18n';
 import { doseTimes, type DayEntry } from './schedule';
 import { formatDate, formatTime, WEEK_ORDER, weekdayName } from './time';
 
-export const DOSE_UNITS: DoseUnit[] = ['pill', 'drop', 'spray', 'ml'];
+export const DOSE_UNITS: DoseUnit[] = ['pill', 'drop', 'spray', 'ml', 'vial'];
 
-/** "2 tablets", "1 drop", "5 ml"; singular for amounts up to 1. */
+/** Amount with halves as "½" / "1½", other fractions as locale decimals. */
+export function formatAmount(lang: Language, amount: number): string {
+  const whole = Math.floor(amount);
+  if (amount - whole === 0.5) return whole === 0 ? '½' : `${whole}½`;
+  return amount.toLocaleString(LOCALE[lang], { maximumFractionDigits: 2 });
+}
+
+/** "2 tablets", "½ tablet", "5 ml"; singular for amounts up to 1. */
 export function formatDose(lang: Language, med: Pick<Medicine, 'doseAmount' | 'doseUnit'>): string {
-  const n = med.doseAmount.toLocaleString(LOCALE[lang], { maximumFractionDigits: 2 });
+  const n = formatAmount(lang, med.doseAmount);
   const form = med.doseAmount <= 1 ? 'one' : 'many';
   return `${n} ${translate(lang, `unit.${med.doseUnit}.${form}`)}`;
 }

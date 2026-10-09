@@ -15,7 +15,7 @@ import { LOCALE, useLang, useT } from '../lib/i18n';
 import { googleCalendarUrl } from '../lib/gcal';
 import { DOSE_UNITS, relationLabel } from '../lib/labels';
 import { defaultTimes, EVERY_8H, OFTEN_COUNTS, oftenOf, type Often } from '../lib/presets';
-import { doseTimes } from '../lib/schedule';
+import { doseTimes, pickMeals, timingMeals } from '../lib/schedule';
 import {
   addDays,
   daysBetween,
@@ -65,18 +65,29 @@ interface TimingState {
   relation: Relation;
   offset: number | null; // null while the minutes field is invalid
   times: number[];
+  mealIds: string[]; // meals chosen for food relations
 }
 
+const autoMeals = (person: Person | undefined, often: Often) =>
+  pickMeals(person?.meals ?? [], typeof often === 'number' ? often : 1).map((m) => m.id);
+
 /** Splits a stored timing into the form's independent "how often" and "relation" choices. */
-function timingState(timing: Timing): TimingState {
+function timingState(timing: Timing, person: Person | undefined): TimingState {
   if (timing.mode === 'times') {
-    return { often: oftenOf(timing), relation: 'none' as Relation, offset: 30, times: timing.times };
+    const often = oftenOf(timing);
+    return { often, relation: 'none', offset: 30, times: timing.times, mealIds: autoMeals(person, often) };
   }
   if (timing.mode === 'sleep') {
-    return { often: 1 as Often, relation: 'sleep' as Relation, offset: timing.offset, times: defaultTimes(1) };
+    return { often: 1, relation: 'sleep', offset: timing.offset, times: defaultTimes(1), mealIds: autoMeals(person, 1) };
   }
-  const count = Math.min(3, Math.max(1, timing.count)) as 1 | 2 | 3;
-  return { often: count as Often, relation: timing.relation as Relation, offset: timing.offset, times: defaultTimes(count) };
+  const mealIds = timingMeals(timing, person?.meals ?? []).map((m) => m.id);
+  return {
+    often: mealIds.length,
+    relation: timing.relation,
+    offset: timing.offset,
+    times: defaultTimes(Math.min(3, Math.max(1, mealIds.length))),
+    mealIds
+  };
 }
 
 export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onDone }: Props) {
@@ -87,7 +98,9 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
   const [daysCount, setDaysCount] = useState<number | null>(() =>
     initial?.endDate ? daysBetween(initial.startDate, initial.endDate) + 1 : 7
   );
-  const [timing, setTiming] = useState(() => timingState(d.timing));
+  const [timing, setTiming] = useState(() =>
+    timingState(d.timing, people.find((p) => p.id === d.personId))
+  );
   // Number fields are null while empty/invalid; saving is blocked until fixed.
   const [dose, setDose] = useState<number | null>(d.doseAmount);
   const [everyDays, setEveryDays] = useState<number | null>(
@@ -117,9 +130,10 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         ? { mode: 'sleep', offset: timing.offset ?? 0 }
         : {
             mode: 'meals',
-            count: typeof timing.often === 'number' ? timing.often : 1,
+            count: timing.mealIds.length,
             relation: timing.relation,
-            offset: timing.relation === 'during' ? 0 : (timing.offset ?? 0)
+            offset: timing.relation === 'during' ? 0 : (timing.offset ?? 0),
+            mealIds: timing.mealIds
           };
   const preview = doseTimes(builtTiming, person);
   const mealCount = person?.meals.length ?? 0;
@@ -141,7 +155,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         : timing.relation;
     const times =
       often === 'every8h' ? EVERY_8H : often === 'custom' ? timing.times : defaultTimes(often);
-    setTiming({ ...timing, often, relation, times });
+    setTiming({ ...timing, often, relation, times, mealIds: autoMeals(person, often) });
   };
   const chooseRelation = (relation: Relation) => {
     let often = timing.often;
@@ -149,7 +163,19 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
     else if (relation !== 'none' && typeof often !== 'number') often = 1;
     const offset = relation === 'before' || relation === 'after' ? 30 : 0;
     const times = typeof often === 'number' && often !== timing.often ? defaultTimes(often) : timing.times;
-    setTiming({ often, relation, offset, times });
+    const mealIds = often === timing.often ? timing.mealIds : autoMeals(person, often);
+    setTiming({ often, relation, offset, times, mealIds });
+  };
+  const toggleMeal = (id: string) => {
+    const mealIds = timing.mealIds.includes(id)
+      ? timing.mealIds.filter((x) => x !== id)
+      : [...timing.mealIds, id];
+    setTiming({ ...timing, mealIds, often: mealIds.length });
+  };
+  const changePerson = (personId: string) => {
+    set({ personId });
+    // Meals are per person: re-pick for the new person's schedule.
+    setTiming({ ...timing, mealIds: autoMeals(people.find((p) => p.id === personId), timing.often) });
   };
 
   // The medicine as it would be saved (used by Save and the calendar links).
@@ -228,7 +254,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
             people={people}
             value={d.personId}
             allowAll={false}
-            onChange={(id) => id && set({ personId: id })}
+            onChange={(id) => id && changePerson(id)}
           />
         </Field>
       )}
@@ -243,15 +269,8 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
       </Field>
 
       <Field group label={t('med.dose')}>
-        <div className="grid grid-cols-[6rem_1fr] gap-2">
-          <NumberInput
-            decimal
-            min={0.01}
-            max={1000}
-            ariaLabel={t('med.amount')}
-            value={dose}
-            onChange={setDose}
-          />
+        <div className="grid grid-cols-[auto_1fr] gap-2">
+          <Stepper decimal step={0.5} min={0.01} max={1000} ariaLabel={t('med.amount')} value={dose} onChange={setDose} />
           <select
             className="input"
             aria-label={t('med.unit')}
@@ -409,6 +428,31 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
             </div>
           </Field>
         )}
+
+        {(timing.relation === 'before' || timing.relation === 'during' || timing.relation === 'after') &&
+          person &&
+          person.meals.length > 0 && (
+            <Field group label={t('med.mealsPick')} hint={t('med.mealsPickHint')}>
+              <div className="flex flex-wrap gap-2">
+                {[...person.meals]
+                  .sort((a, b) => a.time - b.time)
+                  .map((meal) => {
+                    const on = timing.mealIds.includes(meal.id);
+                    return (
+                      <button
+                        key={meal.id}
+                        type="button"
+                        aria-pressed={on}
+                        className={chip(on)}
+                        onClick={() => toggleMeal(meal.id)}
+                      >
+                        {meal.name} · {formatTime(meal.time, hourFormat)}
+                      </button>
+                    );
+                  })}
+              </div>
+            </Field>
+          )}
 
         {timing.relation === 'none' && (
           <TimesEditor

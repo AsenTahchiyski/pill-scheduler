@@ -9,7 +9,9 @@ const DEFAULT_BEDTIME = 22 * 60;
 function parseDose(text: string): { doseAmount: number; doseUnit: DoseUnit } {
   const amount = parseFloat(text.replace(',', '.'));
   const t = text.toLowerCase();
-  const doseUnit: DoseUnit = /ml|мл/.test(t)
+  const doseUnit: DoseUnit = /vial|флакон/.test(t)
+    ? 'vial'
+    : /ml|мл/.test(t)
     ? 'ml'
     : /drop|капк/.test(t)
       ? 'drop'

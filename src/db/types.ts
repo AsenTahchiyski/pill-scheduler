@@ -29,7 +29,7 @@ export interface Person {
   createdAt: number;
 }
 
-export type DoseUnit = 'pill' | 'drop' | 'spray' | 'ml';
+export type DoseUnit = 'pill' | 'drop' | 'spray' | 'ml' | 'vial';
 
 export type FoodRelation = 'before' | 'during' | 'after';
 
@@ -44,7 +44,14 @@ export type Frequency =
  */
 export type Timing =
   | { mode: 'times'; times: number[] } // fixed clock times, minutes after midnight
-  | { mode: 'meals'; count: number; relation: FoodRelation; offset: number }
+  | {
+      mode: 'meals';
+      count: number;
+      relation: FoodRelation;
+      offset: number;
+      /** Chosen meals; when absent (or all deleted), `count` meals are picked automatically. */
+      mealIds?: string[];
+    }
   | { mode: 'sleep'; offset: number }; // offset minutes before bedtime
 
 export interface Medicine {

@@ -6,6 +6,7 @@ import { PersonDot, PersonFilter } from '../components/PersonFilter';
 import type { Medicine, Person, Settings } from '../db/types';
 import { useLang, useT } from '../lib/i18n';
 import { formatDose, frequencyLabel, relationLabel, periodLabel, timesLabel } from '../lib/labels';
+import { doseTimes } from '../lib/schedule';
 import { todayStr } from '../lib/time';
 import { MedicineForm } from './MedicineForm';
 
@@ -106,7 +107,9 @@ function MedicineCard({
   const lang = useLang();
   const today = todayStr();
   const ended = !!med.endDate && med.endDate < today;
-  const relation = relationLabel(lang, med.timing);
+  // With a single meal, name it ("With Lunch"); otherwise the generic "food".
+  const doses = doseTimes(med.timing, person);
+  const relation = relationLabel(lang, med.timing, doses.length === 1 ? doses[0].meal : undefined);
   return (
     <button
       type="button"
