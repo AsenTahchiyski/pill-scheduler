@@ -1,0 +1,455 @@
+import { createContext, useContext } from 'react';
+import type { Language } from '../db/types';
+
+export interface LanguageOption {
+  code: Language;
+  nativeName: string;
+  flag: string;
+}
+
+export const LANGUAGES: LanguageOption[] = [
+  { code: 'bg', nativeName: 'Български', flag: '🇧🇬' },
+  { code: 'en', nativeName: 'English', flag: '🇬🇧' }
+];
+
+export const LOCALE: Record<Language, string> = {
+  bg: 'bg-BG',
+  en: 'en-US'
+};
+
+type Dict = Record<string, string>;
+
+const en: Dict = {
+  'tab.today': 'Today',
+  'tab.meds': 'Medicines',
+  'tab.history': 'History',
+  'tab.people': 'People',
+  'tab.settings': 'Settings',
+
+  'common.save': 'Save',
+  'common.cancel': 'Cancel',
+  'common.delete': 'Delete',
+  'common.all': 'All',
+  'common.min': 'min',
+  'common.add': 'Add',
+  'common.remove': 'Remove',
+
+  'meal.breakfast': 'Breakfast',
+  'meal.lunch': 'Lunch',
+  'meal.dinner': 'Dinner',
+
+  'food.food': 'food',
+  'food.none': 'Any time',
+  'food.before': 'Before',
+  'food.during': 'During',
+  'food.after': 'After',
+  'food.label.before': '{min} min before {meal}',
+  'food.label.before0': 'Right before {meal}',
+  'food.label.during': 'With {meal}',
+  'food.label.after': '{min} min after {meal}',
+  'food.label.after0': 'Right after {meal}',
+
+  'today.today': 'Today',
+  'today.yesterday': 'Yesterday',
+  'today.tomorrow': 'Tomorrow',
+  'today.backToday': 'Back to today',
+  'today.empty': 'Nothing scheduled',
+  'today.emptyHint': 'Add a medicine to see its doses here.',
+  'today.addMed': 'Add medicine',
+  'today.take': 'Taken',
+  'today.skip': 'Skip',
+  'today.taken': 'Taken {time}',
+  'today.skipped': 'Skipped',
+  'today.overdue': 'Overdue',
+  'today.next': 'Next',
+  'today.progress': '{done} of {total} taken',
+  'today.notifOff': 'Reminders are off — enable notifications in Settings.',
+  'today.removed': 'removed',
+
+  'meds.title': 'Medicines',
+  'meds.add': 'Add medicine',
+  'meds.empty': 'No medicines yet.',
+  'meds.rx': 'Rx',
+  'meds.ended': 'Finished',
+
+  'med.new': 'New medicine',
+  'med.edit': 'Edit medicine',
+  'med.person': 'For',
+  'med.name': 'Name',
+  'med.namePh': 'e.g. Ibuprofen',
+  'med.dose': 'Dose',
+  'med.dosePh': 'e.g. 1 tablet, 5 ml',
+  'med.prescription': 'Prescription medicine',
+  'med.presets': 'Quick schedules',
+  'med.period': 'Period',
+  'med.start': 'Start',
+  'med.end.ongoing': 'Ongoing',
+  'med.end.until': 'Until date',
+  'med.end.days': 'For N days',
+  'med.endDate': 'Last day',
+  'med.daysCount': 'Number of days',
+  'med.lastDay': 'Last day: {date}',
+  'med.frequency': 'Which days',
+  'med.freq.daily': 'Every day',
+  'med.freq.weekdays': 'Weekdays',
+  'med.freq.interval': 'Every N days',
+  'med.everyDays': 'Every how many days',
+  'med.perWeek': '{n}× per week',
+  'med.food': 'Food',
+  'med.foodOffset': 'Minutes {rel} the meal',
+  'med.foodOffset.before': 'before',
+  'med.foodOffset.after': 'after the end of',
+  'med.timing': 'Times of day',
+  'med.timing.times': 'Set times',
+  'med.timing.meals': 'At meals',
+  'med.timesPerDay': 'Times per day',
+  'med.addTime': 'Add time',
+  'med.mealsPick': 'Which meals',
+  'med.noMeals': 'No meals set up for this person. Add them under People.',
+  'med.preview': 'Doses at',
+  'med.previewNone': 'No dose times yet',
+  'med.reminders': 'Show reminders',
+  'med.notes': 'Notes',
+  'med.notesPh': 'Optional',
+  'med.err.name': 'Enter a name.',
+  'med.err.times': 'Add at least one dose time.',
+  'med.err.days': 'Pick at least one weekday.',
+  'med.err.end': 'The last day is before the start.',
+  'med.delete.title': 'Delete medicine?',
+  'med.delete.sub': '“{name}” will be removed from the schedule. Its dose history is kept.',
+
+  'sum.daily': 'Every day',
+  'sum.interval': 'Every {n} days',
+  'sum.until': 'until {date}',
+  'sum.from': 'from {date}',
+  'sum.range': '{from} – {to}',
+  'sum.ongoing': 'ongoing',
+  'sum.ended': 'finished',
+
+  'preset.once': 'Once a day',
+  'preset.twice': 'Twice a day',
+  'preset.three': '3× a day',
+  'preset.every8h': 'Every 8 hours',
+  'preset.beforeMeals': 'Before meals',
+  'preset.withMeals': 'With meals',
+  'preset.afterMeals': 'After meals',
+  'preset.bedtime': 'At bedtime',
+  'preset.everyOther': 'Every other day',
+  'preset.weekly': 'Once a week',
+
+  'history.title': 'History',
+  'history.sub': 'The last 14 days.',
+  'history.taken': 'Taken',
+  'history.skipped': 'Skipped',
+  'history.missed': 'Not marked',
+  'history.summary': '{taken}/{total} taken',
+  'history.nothing': 'Nothing scheduled',
+
+  'people.title': 'People',
+  'people.sub': 'Each person has their own medicines and usual meal times.',
+  'people.me': 'Me',
+  'people.new': 'New person',
+  'people.edit': 'Edit person',
+  'people.name': 'Name',
+  'people.namePh': 'e.g. Maria',
+  'people.color': 'Color',
+  'people.meals': 'Usual meals',
+  'people.mealsHint': 'Meal-based medicines are scheduled from these. "After" counts from the end of the meal.',
+  'people.addMeal': 'Add meal',
+  'people.mealName': 'Meal',
+  'people.mealTime': 'Starts',
+  'people.mealDuration': 'Lasts (min)',
+  'people.medCount': '{n} medicines',
+  'people.medCountOne': '1 medicine',
+  'people.noMeals': 'No meals',
+  'people.err.name': 'Enter a name.',
+  'people.delete.title': 'Delete person?',
+  'people.delete.sub': '“{name}” and all of their medicines and history will be deleted.',
+
+  'settings.title': 'Settings',
+  'settings.language': 'Language',
+  'settings.accent': 'Accent color',
+  'settings.theme': 'Theme',
+  'settings.hourFormat': 'Time format',
+  'theme.system': 'System',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'hour.24h': '24-hour',
+  'hour.12h': '12-hour',
+
+  'settings.reminders': 'Reminders',
+  'settings.reminders.sub':
+    'Notifications for medicines with “Show reminders” on. A web app can only notify while it is open or recently used — for alarms that always ring, export to your calendar.',
+  'settings.notif.granted': 'Notifications are on.',
+  'settings.notif.denied': 'Notifications are blocked. Allow them in the browser’s site settings.',
+  'settings.notif.default': 'Notifications are not enabled yet.',
+  'settings.notif.unsupported': 'This browser doesn’t support notifications.',
+  'settings.notif.enable': 'Enable notifications',
+  'settings.notif.test': 'Send a test',
+  'settings.notif.testTitle': 'Pill Scheduler',
+  'settings.notif.testBody': 'Reminders work 👍',
+  'settings.calendar': 'Export to calendar (.ics)',
+  'settings.calendar.hint':
+    'Adds a repeating event with an alarm for every dose of medicines with reminders on. Export again after changing schedules or meal times.',
+  'settings.calendar.none': 'No medicines with reminders on',
+  'settings.calendar.done': 'Calendar file downloaded',
+
+  'settings.data': 'Data',
+  'settings.dataSub': 'Everything stays on this device. Export a backup or move it to another device.',
+  'settings.export': 'Export JSON',
+  'settings.import': 'Import JSON',
+  'settings.import.title': 'Import data',
+  'settings.import.sub': 'The file has {people} people and {meds} medicines.',
+  'settings.import.merge': 'Merge into current',
+  'settings.import.replace': 'Replace existing',
+  'settings.toast.exported': 'Exported',
+  'settings.toast.invalid': 'Not a valid export file',
+  'settings.toast.unreadable': 'Could not read that file',
+  'settings.toast.imported': 'Imported',
+  'settings.toast.backupSet': 'Backup file updated',
+  'settings.toast.backupDefault': 'Using the default backup file',
+  'settings.backup.label': 'Backup file',
+  'settings.backup.defaultPath': 'App storage · {name}',
+  'settings.backup.hint': 'Rewritten automatically on every change.',
+  'settings.backup.needsPermission': 'Access to the chosen file must be re-allowed after a restart.',
+  'settings.backup.allow': 'Allow access',
+  'settings.backup.choose': 'Choose file…',
+  'settings.backup.useDefault': 'Use default',
+
+  'notif.titleFor': '{med} — {person}'
+};
+
+const bg: Dict = {
+  'tab.today': 'Днес',
+  'tab.meds': 'Лекарства',
+  'tab.history': 'История',
+  'tab.people': 'Хора',
+  'tab.settings': 'Настройки',
+
+  'common.save': 'Запази',
+  'common.cancel': 'Отказ',
+  'common.delete': 'Изтрий',
+  'common.all': 'Всички',
+  'common.min': 'мин',
+  'common.add': 'Добави',
+  'common.remove': 'Премахни',
+
+  'meal.breakfast': 'Закуска',
+  'meal.lunch': 'Обяд',
+  'meal.dinner': 'Вечеря',
+
+  'food.food': 'храна',
+  'food.none': 'Без значение',
+  'food.before': 'Преди',
+  'food.during': 'По време',
+  'food.after': 'След',
+  'food.label.before': '{min} мин преди {meal}',
+  'food.label.before0': 'Точно преди {meal}',
+  'food.label.during': 'По време на {meal}',
+  'food.label.after': '{min} мин след {meal}',
+  'food.label.after0': 'Веднага след {meal}',
+
+  'today.today': 'Днес',
+  'today.yesterday': 'Вчера',
+  'today.tomorrow': 'Утре',
+  'today.backToday': 'Към днес',
+  'today.empty': 'Нищо не е планирано',
+  'today.emptyHint': 'Добавете лекарство, за да видите дозите му тук.',
+  'today.addMed': 'Добави лекарство',
+  'today.take': 'Взето',
+  'today.skip': 'Пропусни',
+  'today.taken': 'Взето {time}',
+  'today.skipped': 'Пропуснато',
+  'today.overdue': 'Закъсняло',
+  'today.next': 'Следващо',
+  'today.progress': '{done} от {total} взети',
+  'today.notifOff': 'Напомнянията са изключени — разрешете известия в Настройки.',
+  'today.removed': 'премахнато',
+
+  'meds.title': 'Лекарства',
+  'meds.add': 'Добави лекарство',
+  'meds.empty': 'Все още няма лекарства.',
+  'meds.rx': 'Rx',
+  'meds.ended': 'Приключили',
+
+  'med.new': 'Ново лекарство',
+  'med.edit': 'Редакция',
+  'med.person': 'За',
+  'med.name': 'Име',
+  'med.namePh': 'напр. Ибупрофен',
+  'med.dose': 'Доза',
+  'med.dosePh': 'напр. 1 таблетка, 5 мл',
+  'med.prescription': 'Лекарство по рецепта',
+  'med.presets': 'Бързи схеми',
+  'med.period': 'Период',
+  'med.start': 'Начало',
+  'med.end.ongoing': 'Постоянно',
+  'med.end.until': 'До дата',
+  'med.end.days': 'Брой дни',
+  'med.endDate': 'Последен ден',
+  'med.daysCount': 'Брой дни',
+  'med.lastDay': 'Последен ден: {date}',
+  'med.frequency': 'Кои дни',
+  'med.freq.daily': 'Всеки ден',
+  'med.freq.weekdays': 'Дни от седм.',
+  'med.freq.interval': 'През N дни',
+  'med.everyDays': 'През колко дни',
+  'med.perWeek': '{n}× седмично',
+  'med.food': 'Храна',
+  'med.foodOffset': 'Минути {rel} храненето',
+  'med.foodOffset.before': 'преди',
+  'med.foodOffset.after': 'след края на',
+  'med.timing': 'Часове',
+  'med.timing.times': 'Точни часове',
+  'med.timing.meals': 'По храненията',
+  'med.timesPerDay': 'Пъти на ден',
+  'med.addTime': 'Добави час',
+  'med.mealsPick': 'Кои хранения',
+  'med.noMeals': 'Няма въведени хранения за този човек. Добавете ги в Хора.',
+  'med.preview': 'Дози в',
+  'med.previewNone': 'Все още няма часове',
+  'med.reminders': 'Показвай напомняния',
+  'med.notes': 'Бележки',
+  'med.notesPh': 'По желание',
+  'med.err.name': 'Въведете име.',
+  'med.err.times': 'Добавете поне един час.',
+  'med.err.days': 'Изберете поне един ден.',
+  'med.err.end': 'Последният ден е преди началото.',
+  'med.delete.title': 'Изтриване на лекарство?',
+  'med.delete.sub': '„{name}“ ще бъде премахнато от графика. Историята на дозите се запазва.',
+
+  'sum.daily': 'Всеки ден',
+  'sum.interval': 'През {n} дни',
+  'sum.until': 'до {date}',
+  'sum.from': 'от {date}',
+  'sum.range': '{from} – {to}',
+  'sum.ongoing': 'постоянно',
+  'sum.ended': 'приключило',
+
+  'preset.once': 'Веднъж дневно',
+  'preset.twice': 'Два пъти дневно',
+  'preset.three': '3 пъти дневно',
+  'preset.every8h': 'На 8 часа',
+  'preset.beforeMeals': 'Преди хранене',
+  'preset.withMeals': 'По време на хранене',
+  'preset.afterMeals': 'След хранене',
+  'preset.bedtime': 'Преди сън',
+  'preset.everyOther': 'През ден',
+  'preset.weekly': 'Веднъж седмично',
+
+  'history.title': 'История',
+  'history.sub': 'Последните 14 дни.',
+  'history.taken': 'Взето',
+  'history.skipped': 'Пропуснато',
+  'history.missed': 'Неотбелязано',
+  'history.summary': '{taken}/{total} взети',
+  'history.nothing': 'Нищо не е планирано',
+
+  'people.title': 'Хора',
+  'people.sub': 'Всеки човек има свои лекарства и обичайни часове за хранене.',
+  'people.me': 'Аз',
+  'people.new': 'Нов човек',
+  'people.edit': 'Редакция',
+  'people.name': 'Име',
+  'people.namePh': 'напр. Мария',
+  'people.color': 'Цвят',
+  'people.meals': 'Обичайни хранения',
+  'people.mealsHint': 'Лекарствата по храненията се планират спрямо тях. „След“ се брои от края на храненето.',
+  'people.addMeal': 'Добави хранене',
+  'people.mealName': 'Хранене',
+  'people.mealTime': 'Начало',
+  'people.mealDuration': 'Трае (мин)',
+  'people.medCount': '{n} лекарства',
+  'people.medCountOne': '1 лекарство',
+  'people.noMeals': 'Няма хранения',
+  'people.err.name': 'Въведете име.',
+  'people.delete.title': 'Изтриване на човек?',
+  'people.delete.sub': '„{name}“ и всичките му лекарства и история ще бъдат изтрити.',
+
+  'settings.title': 'Настройки',
+  'settings.language': 'Език',
+  'settings.accent': 'Основен цвят',
+  'settings.theme': 'Тема',
+  'settings.hourFormat': 'Формат на часа',
+  'theme.system': 'Системна',
+  'theme.light': 'Светла',
+  'theme.dark': 'Тъмна',
+  'hour.24h': '24-часов',
+  'hour.12h': '12-часов',
+
+  'settings.reminders': 'Напомняния',
+  'settings.reminders.sub':
+    'Известия за лекарства с включено „Показвай напомняния“. Уеб приложението може да известява само докато е отворено или наскоро използвано — за аларми, които винаги звънят, експортирайте в календара си.',
+  'settings.notif.granted': 'Известията са включени.',
+  'settings.notif.denied': 'Известията са блокирани. Разрешете ги от настройките на сайта в браузъра.',
+  'settings.notif.default': 'Известията още не са разрешени.',
+  'settings.notif.unsupported': 'Този браузър не поддържа известия.',
+  'settings.notif.enable': 'Разреши известия',
+  'settings.notif.test': 'Пробно известие',
+  'settings.notif.testTitle': 'Pill Scheduler',
+  'settings.notif.testBody': 'Напомнянията работят 👍',
+  'settings.calendar': 'Експорт в календар (.ics)',
+  'settings.calendar.hint':
+    'Добавя повтарящо се събитие с аларма за всяка доза на лекарствата с напомняния. Експортирайте отново след промяна на схеми или часове за хранене.',
+  'settings.calendar.none': 'Няма лекарства с включени напомняния',
+  'settings.calendar.done': 'Файлът за календара е изтеглен',
+
+  'settings.data': 'Данни',
+  'settings.dataSub': 'Всичко остава на това устройство. Експортирайте резервно копие или го преместете на друго устройство.',
+  'settings.export': 'Експорт JSON',
+  'settings.import': 'Импорт JSON',
+  'settings.import.title': 'Импорт на данни',
+  'settings.import.sub': 'Файлът съдържа {people} души и {meds} лекарства.',
+  'settings.import.merge': 'Обедини със съществуващите',
+  'settings.import.replace': 'Замени съществуващите',
+  'settings.toast.exported': 'Експортирано',
+  'settings.toast.invalid': 'Невалиден файл за импорт',
+  'settings.toast.unreadable': 'Файлът не може да бъде прочетен',
+  'settings.toast.imported': 'Импортирано',
+  'settings.toast.backupSet': 'Резервният файл е обновен',
+  'settings.toast.backupDefault': 'Използва се файлът по подразбиране',
+  'settings.backup.label': 'Резервен файл',
+  'settings.backup.defaultPath': 'Хранилище на приложението · {name}',
+  'settings.backup.hint': 'Презаписва се автоматично при всяка промяна.',
+  'settings.backup.needsPermission': 'Достъпът до избрания файл трябва да се разреши отново след рестарт.',
+  'settings.backup.allow': 'Разреши достъп',
+  'settings.backup.choose': 'Избери файл…',
+  'settings.backup.useDefault': 'По подразбиране',
+
+  'notif.titleFor': '{med} — {person}'
+};
+
+const DICTS: Record<Language, Dict> = { en, bg };
+
+function applyParams(
+  str: string,
+  params?: Record<string, string | number>
+): string {
+  if (!params) return str;
+  let out = str;
+  for (const [k, v] of Object.entries(params)) {
+    out = out.split(`{${k}}`).join(String(v));
+  }
+  return out;
+}
+
+export function translate(
+  lang: Language,
+  key: string,
+  params?: Record<string, string | number>
+): string {
+  const raw = DICTS[lang]?.[key] ?? DICTS.en[key] ?? key;
+  return applyParams(raw, params);
+}
+
+export const LanguageContext = createContext<Language>('bg');
+
+export function useLang(): Language {
+  return useContext(LanguageContext);
+}
+
+export function useT() {
+  const lang = useLang();
+  return (key: string, params?: Record<string, string | number>) =>
+    translate(lang, key, params);
+}

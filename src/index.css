@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: 122 162 255;
+  --accent-contrast: 11 15 23;
+
+  --surface: 247 248 251;
+  --surface-2: 255 255 255;
+  --ink: 17 22 32;
+  --ink-dim: 95 106 124;
+  --line: 224 228 235;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --surface: 11 15 23;
+  --surface-2: 22 28 40;
+  --ink: 232 237 246;
+  --ink-dim: 148 159 178;
+  --line: 36 44 60;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --surface: 11 15 23;
+    --surface-2: 22 28 40;
+    --ink: 232 237 246;
+    --ink-dim: 148 159 178;
+    --line: 36 44 60;
+    color-scheme: dark;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: rgb(var(--surface));
+  color: rgb(var(--ink));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Hide spin buttons on numeric inputs across browsers. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* Safe-area aware app shell */
+.app-shell {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 72px);
+}
+
+.tab-bar {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.glass {
+  background-color: rgb(var(--surface-2) / 0.78);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+}
+
+/* Subtle ambient backdrop tinted by the accent color */
+.accent-ambient::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 30% at 30% 10%, rgb(var(--accent) / 0.22), transparent 70%),
+    radial-gradient(50% 35% at 80% 90%, rgb(var(--accent) / 0.12), transparent 70%);
+  pointer-events: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Shared text input look */
+.input {
+  width: 100%;
+  height: 3rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--line));
+  background-color: rgb(var(--surface));
+}
+.input:focus {
+  outline: none;
+  border-color: rgb(var(--accent));
+}
+textarea.input {
+  height: auto;
+  padding: 0.6rem 0.75rem;
+}
