@@ -5,7 +5,9 @@ import { Field } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { PersonFilter } from '../components/PersonFilter';
 import { Segmented } from '../components/Segmented';
+import { NumberInput } from '../components/NumberInput';
 import { Stepper } from '../components/Stepper';
+import { TimeInput } from '../components/TimeInput';
 import { deleteMedicine, saveMedicine } from '../db/db';
 import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
 import { cx } from '../lib/cx';
@@ -18,9 +20,7 @@ import {
   daysBetween,
   formatDate,
   formatTime,
-  fromHHMM,
   todayStr,
-  toHHMM,
   WEEK_ORDER,
   weekdayName
 } from '../lib/time';
@@ -59,8 +59,15 @@ function blankMedicine(personId: string): Medicine {
   };
 }
 
+interface TimingState {
+  often: Often;
+  relation: Relation;
+  offset: number | null; // null while the minutes field is invalid
+  times: number[];
+}
+
 /** Splits a stored timing into the form's independent "how often" and "relation" choices. */
-function timingState(timing: Timing) {
+function timingState(timing: Timing): TimingState {
   if (timing.mode === 'times') {
     return { often: oftenOf(timing), relation: 'none' as Relation, offset: 30, times: timing.times };
   }
@@ -76,10 +83,15 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
   const lang = useLang();
   const [d, setD] = useState<Medicine>(() => initial ?? blankMedicine(defaultPersonId));
   const [endMode, setEndMode] = useState<EndMode>(initial?.endDate ? 'until' : 'ongoing');
-  const [daysCount, setDaysCount] = useState(() =>
+  const [daysCount, setDaysCount] = useState<number | null>(() =>
     initial?.endDate ? daysBetween(initial.startDate, initial.endDate) + 1 : 7
   );
   const [timing, setTiming] = useState(() => timingState(d.timing));
+  // Number fields are null while empty/invalid; saving is blocked until fixed.
+  const [dose, setDose] = useState<number | null>(d.doseAmount);
+  const [everyDays, setEveryDays] = useState<number | null>(
+    d.frequency.kind === 'interval' ? d.frequency.everyDays : 2
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -90,7 +102,9 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
     endMode === 'ongoing'
       ? null
       : endMode === 'days'
-        ? addDays(d.startDate, daysCount - 1)
+        ? daysCount === null
+          ? null
+          : addDays(d.startDate, daysCount - 1)
         : (d.endDate ?? addDays(d.startDate, 6));
   const fmtDay = (s: string) =>
     formatDate(s, LOCALE[lang], { weekday: 'short', day: 'numeric', month: 'short' });
@@ -99,15 +113,22 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
     timing.relation === 'none'
       ? { mode: 'times', times: timing.times }
       : timing.relation === 'sleep'
-        ? { mode: 'sleep', offset: timing.offset }
+        ? { mode: 'sleep', offset: timing.offset ?? 0 }
         : {
             mode: 'meals',
             count: typeof timing.often === 'number' ? timing.often : 1,
             relation: timing.relation,
-            offset: timing.relation === 'during' ? 0 : timing.offset
+            offset: timing.relation === 'during' ? 0 : (timing.offset ?? 0)
           };
   const preview = doseTimes(builtTiming, person);
   const mealCount = person?.meals.length ?? 0;
+  const needsOffset =
+    timing.relation === 'before' || timing.relation === 'after' || timing.relation === 'sleep';
+  const invalid =
+    dose === null ||
+    (endMode === 'days' && daysCount === null) ||
+    (d.frequency.kind === 'interval' && everyDays === null) ||
+    (needsOffset && timing.offset === null);
 
   // Choices adjust each other: meal relations need 1–3× a day and
   // "before sleep" is once a day.
@@ -131,8 +152,8 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
   };
 
   const save = async () => {
+    if (invalid || dose === null) return;
     if (!d.name.trim()) return setError(t('med.err.name'));
-    if (!(d.doseAmount > 0)) return setError(t('med.err.dose'));
     if (d.frequency.kind === 'weekdays' && d.frequency.days.length === 0)
       return setError(t('med.err.days'));
     if (preview.length === 0) return setError(t('med.err.times'));
@@ -140,6 +161,8 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
     await saveMedicine({
       ...d,
       name: d.name.trim(),
+      doseAmount: dose,
+      frequency: d.frequency.kind === 'interval' ? { kind: 'interval', everyDays: everyDays ?? 2 } : d.frequency,
       notes: d.notes.trim(),
       endDate,
       timing:
@@ -211,15 +234,13 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
 
       <Field group label={t('med.dose')}>
         <div className="grid grid-cols-[6rem_1fr] gap-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
-            className="input text-center"
-            aria-label={t('med.amount')}
-            value={Number.isFinite(d.doseAmount) ? d.doseAmount : ''}
-            onChange={(e) => set({ doseAmount: parseFloat(e.target.value) })}
+          <NumberInput
+            decimal
+            min={0.01}
+            max={1000}
+            ariaLabel={t('med.amount')}
+            value={dose}
+            onChange={setDose}
           />
           <select
             className="input"
@@ -273,15 +294,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
           )}
           {endMode === 'days' && (
             <Field label={t('med.daysCount')}>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="input"
-                min={1}
-                max={365}
-                value={daysCount}
-                onChange={(e) => setDaysCount(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
-              />
+              <NumberInput min={1} max={365} value={daysCount} onChange={setDaysCount} />
             </Field>
           )}
         </div>
@@ -304,7 +317,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
                   ? { kind }
                   : kind === 'weekdays'
                     ? { kind, days: d.frequency.kind === 'weekdays' ? d.frequency.days : [1, 3, 5] }
-                    : { kind, everyDays: d.frequency.kind === 'interval' ? d.frequency.everyDays : 2 }
+                    : { kind, everyDays: everyDays ?? 2 }
               )
             }
             options={[
@@ -328,8 +341,8 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
               ariaLabel={t('med.everyDays')}
               min={2}
               max={60}
-              value={d.frequency.everyDays}
-              onChange={(everyDays) => setFreq({ kind: 'interval', everyDays })}
+              value={everyDays}
+              onChange={setEveryDays}
             />
           </Field>
         )}
@@ -375,17 +388,13 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
                   {m} {t('common.min')}
                 </button>
               ))}
-              <input
-                type="number"
-                inputMode="numeric"
+              <NumberInput
                 min={0}
                 max={240}
                 value={timing.offset}
-                aria-label={t(`med.offset.${timing.relation}`)}
-                onChange={(e) =>
-                  setTiming({ ...timing, offset: Math.max(0, Math.min(240, Number(e.target.value) || 0)) })
-                }
-                className="h-11 w-20 text-center rounded-xl border border-line bg-surface-2"
+                ariaLabel={t(`med.offset.${timing.relation}`)}
+                onChange={(offset) => setTiming({ ...timing, offset })}
+                className="!h-11 !w-20"
               />
             </div>
           </Field>
@@ -394,6 +403,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         {timing.relation === 'none' && (
           <TimesEditor
             times={timing.times}
+            hourFormat={hourFormat}
             editableCount={timing.often === 'custom'}
             onChange={(times) => setTiming({ ...timing, times })}
           />
@@ -462,7 +472,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         <Button variant="ghost" className="flex-1" onClick={onDone}>
           {t('common.cancel')}
         </Button>
-        <Button className="flex-1" onClick={save}>
+        <Button className="flex-1" disabled={invalid} onClick={save}>
           {t('common.save')}
         </Button>
       </div>
@@ -509,10 +519,12 @@ function WeekdayPicker({
 
 function TimesEditor({
   times,
+  hourFormat,
   editableCount,
   onChange
 }: {
   times: number[];
+  hourFormat: HourFormat;
   editableCount: boolean;
   onChange: (t: number[]) => void;
 }) {
@@ -520,16 +532,13 @@ function TimesEditor({
   return (
     <Field group label={t('med.times')}>
       <div className="grid gap-2">
-        <div className="grid grid-cols-2 gap-2">
+        <div className={hourFormat === '12h' ? 'grid gap-2' : 'grid grid-cols-2 gap-2'}>
           {times.map((time, i) => (
             <div key={i} className="flex items-center gap-1">
-              <input
-                type="time"
-                className="input"
-                value={toHHMM(time)}
-                onChange={(e) =>
-                  e.target.value && onChange(times.map((x, j) => (j === i ? fromHHMM(e.target.value) : x)))
-                }
+              <TimeInput
+                value={time}
+                hourFormat={hourFormat}
+                onChange={(v) => onChange(times.map((x, j) => (j === i ? v : x)))}
               />
               {editableCount && times.length > 1 && (
                 <button

@@ -1,6 +1,8 @@
+import { NumberInput } from './NumberInput';
+
 interface Props {
-  value: number;
-  onChange: (v: number) => void;
+  value: number | null;
+  onChange: (v: number | null) => void;
   min: number;
   max: number;
   ariaLabel: string;
@@ -9,23 +11,24 @@ interface Props {
 export function Stepper({ value, onChange, min, max, ariaLabel }: Props) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
   const btn =
-    'h-11 w-11 rounded-xl border border-line bg-surface text-xl leading-none disabled:opacity-40';
+    'h-11 w-11 shrink-0 rounded-xl border border-line bg-surface text-xl leading-none disabled:opacity-40';
   return (
     <div className="flex items-center gap-2" role="group" aria-label={ariaLabel}>
-      <button type="button" className={btn} disabled={value <= min} onClick={() => onChange(clamp(value - 1))}>
+      <button
+        type="button"
+        className={btn}
+        disabled={value !== null && value <= min}
+        onClick={() => onChange(clamp((value ?? min) - 1))}
+      >
         −
       </button>
-      <input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        min={min}
-        max={max}
-        aria-label={ariaLabel}
-        onChange={(e) => onChange(clamp(Number(e.target.value) || min))}
-        className="h-11 w-16 text-center rounded-xl border border-line bg-surface text-base font-medium"
-      />
-      <button type="button" className={btn} disabled={value >= max} onClick={() => onChange(clamp(value + 1))}>
+      <NumberInput value={value} onChange={onChange} min={min} max={max} ariaLabel={ariaLabel} className="!h-11 !w-16" />
+      <button
+        type="button"
+        className={btn}
+        disabled={value !== null && value >= max}
+        onClick={() => onChange(clamp((value ?? min) + 1))}
+      >
         +
       </button>
     </div>

@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { savePerson } from '../db/db';
-import type { Meal, Person } from '../db/types';
+import type { HourFormat, Meal, Person } from '../db/types';
 import { useT } from '../lib/i18n';
-import { fromHHMM, toHHMM } from '../lib/time';
 import { uid } from '../lib/uid';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Icon } from './Icon';
+import { NumberInput } from './NumberInput';
 import { PersonFilter } from './PersonFilter';
+import { TimeInput } from './TimeInput';
 
 /** Settings section: each person's meals (start + duration) and bedtime. */
-export function MealSchedule({ people }: { people: Person[] }) {
+export function MealSchedule({ people, hourFormat }: { people: Person[]; hourFormat: HourFormat }) {
   const t = useT();
   const [personId, setPersonId] = useState(people[0]?.id);
   const person = people.find((p) => p.id === personId) ?? people[0];
@@ -28,12 +29,12 @@ export function MealSchedule({ people }: { people: Person[] }) {
         onChange={(id) => id && setPersonId(id)}
       />
       {/* Remount per person so the local draft starts from their data. */}
-      <PersonMeals key={person.id} person={person} />
+      <PersonMeals key={person.id} person={person} hourFormat={hourFormat} />
     </div>
   );
 }
 
-function PersonMeals({ person }: { person: Person }) {
+function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourFormat }) {
   const t = useT();
   // Inputs edit a local draft (no caret jumps from async DB round-trips);
   // every change is saved right away.
@@ -44,56 +45,53 @@ function PersonMeals({ person }: { person: Person }) {
   };
   const setMeal = (id: string, patch: Partial<Meal>) =>
     update({ ...draft, meals: draft.meals.map((m) => (m.id === id ? { ...m, ...patch } : m)) });
-  const cols = 'grid grid-cols-[1fr_6.25rem_3.5rem_1.5rem] gap-2 items-center';
 
   return (
     <div className="grid gap-4">
       <Field group label={t('people.meals')} hint={t('people.mealsHint')}>
         <div className="grid gap-2">
-          {draft.meals.length === 0 ? (
-            <p className="text-sm text-ink-dim">{t('people.noMeals')}</p>
-          ) : (
-            <div className={`${cols} text-xs text-ink-dim`}>
-              <span>{t('people.mealName')}</span>
-              <span>{t('people.mealTime')}</span>
-              <span>{t('people.mealDuration')}</span>
-            </div>
-          )}
+          {draft.meals.length === 0 && <p className="text-sm text-ink-dim">{t('people.noMeals')}</p>}
           {draft.meals.map((m) => (
-            <div key={m.id} className={cols}>
-              <input
-                className="input min-w-0"
-                value={m.name}
-                aria-label={t('people.mealName')}
-                onChange={(e) => setMeal(m.id, { name: e.target.value })}
-              />
-              <input
-                type="time"
-                className="input px-2"
-                value={toHHMM(m.time)}
-                aria-label={t('people.mealTime')}
-                onChange={(e) => e.target.value && setMeal(m.id, { time: fromHHMM(e.target.value) })}
-              />
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={240}
-                className="input text-center px-1"
-                value={m.duration}
-                aria-label={t('people.mealDuration')}
-                onChange={(e) =>
-                  setMeal(m.id, { duration: Math.max(0, Math.min(240, Number(e.target.value) || 0)) })
-                }
-              />
-              <button
-                type="button"
-                aria-label={t('common.remove')}
-                onClick={() => update({ ...draft, meals: draft.meals.filter((x) => x.id !== m.id) })}
-                className="h-12 grid place-items-center text-ink-dim hover:text-ink"
-              >
-                <Icon name="x" size={18} />
-              </button>
+            <div key={m.id} className="grid gap-2 rounded-xl border border-line bg-surface p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  className="input min-w-0 flex-1"
+                  value={m.name}
+                  aria-label={t('people.mealName')}
+                  onChange={(e) => setMeal(m.id, { name: e.target.value })}
+                />
+                <button
+                  type="button"
+                  aria-label={t('common.remove')}
+                  onClick={() => update({ ...draft, meals: draft.meals.filter((x) => x.id !== m.id) })}
+                  className="h-12 w-9 shrink-0 grid place-items-center text-ink-dim hover:text-ink"
+                >
+                  <Icon name="x" size={18} />
+                </button>
+              </div>
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                <div className="grid gap-1">
+                  <span className="text-xs text-ink-dim">{t('people.mealTime')}</span>
+                  <TimeInput
+                    value={m.time}
+                    hourFormat={hourFormat}
+                    ariaLabel={t('people.mealTime')}
+                    onChange={(time) => setMeal(m.id, { time })}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs text-ink-dim">{t('people.mealDuration')}</span>
+                  <NumberInput
+                    min={0}
+                    max={240}
+                    value={m.duration}
+                    ariaLabel={t('people.mealDuration')}
+                    // Invalid text shows red and isn't saved; the last valid value stays.
+                    onChange={(duration) => duration !== null && setMeal(m.id, { duration })}
+                    className="!w-20"
+                  />
+                </div>
+              </div>
             </div>
           ))}
           <Button
@@ -115,12 +113,12 @@ function PersonMeals({ person }: { person: Person }) {
         </div>
       </Field>
 
-      <Field label={t('people.bedtime')}>
-        <input
-          type="time"
-          className="input w-40"
-          value={toHHMM(draft.bedtime)}
-          onChange={(e) => e.target.value && update({ ...draft, bedtime: fromHHMM(e.target.value) })}
+      <Field group label={t('people.bedtime')}>
+        <TimeInput
+          value={draft.bedtime}
+          hourFormat={hourFormat}
+          ariaLabel={t('people.bedtime')}
+          onChange={(bedtime) => update({ ...draft, bedtime })}
         />
       </Field>
     </div>
