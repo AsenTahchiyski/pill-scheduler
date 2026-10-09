@@ -17,12 +17,12 @@ There are no tests and no linter; `npm run typecheck` is the verification gate. 
 ## Architecture
 
 - `src/App.tsx` switches five tab screens (`src/screens/`) with local state; no router. All data comes from `useData()` (`dexie-react-hooks` live queries) and is passed down as props.
-- **Data** (`src/db/`): tables `settings` (single row `'default'`), `people` (each with embedded `meals`), `medicines`, `doses` (taken/skipped log), `kv`. Schema changes need a new `this.version(n)` block. Never edit existing ones.
-- **Scheduling** (`src/lib/schedule.ts`): pure functions with no Dexie dependency. `isActiveOn` (period + frequency), `doseTimes` (fixed times, or derived from the person's meals: before = meal start − offset, during = start, after = start + duration + offset), and `dayEntries`, which merges the schedule with dose logs for one date. Today, History, reminders and the ICS export all go through these.
+- **Data** (`src/db/`): tables `settings` (single row `'default'`), `people` (each with embedded `meals` and a `bedtime`, edited in Settings → Meal schedule), `medicines`, `doses` (taken/skipped log), `kv`. Schema changes need a new `this.version(n)` block. Never edit existing ones. Shape migrations live in `src/db/migrate.ts`, shared by the Dexie upgrade and backup import (v1 → v2: dose text → `doseAmount` + `doseUnit`, meal ids → meal count, prescription flag dropped).
+- **Scheduling** (`src/lib/schedule.ts`): pure functions with no Dexie dependency. `isActiveOn` (period + frequency), `doseTimes` over a `Timing` union: fixed `times`; `meals` with a count, where `pickMeals` spreads N doses over the person's meals and before = meal start − offset, during = start, after = start + duration + offset; or `sleep` = bedtime − offset, and `dayEntries`, which merges the schedule with dose logs for one date. Today, History, reminders and the ICS export all go through these.
 - **Dose log ids** are `${medicineId}|${date}|${minutes}` (`doseKey`). Logs snapshot the medicine name and dose so history survives edits and deletes. Logs that no longer match the schedule still show up for their day.
 - **Time model**: dates are local `YYYY-MM-DD` strings and clock times are minutes after midnight. Both are deliberately timezone-free. Helpers are in `src/lib/time.ts`.
 - **Reminders** (`src/hooks/useReminders.ts`) only run while the app is open (no web API schedules notifications for a closed app). The reliable path is the `.ics` export in `src/lib/ics.ts` (floating times, RRULE, VALARM, UTF-8 octet folding). `public/notification-click.js` is imported into the generated service worker.
-- **Backup**: same multi-layer scheme as fasting-timer (`main.tsx` bootstrap restore, `useAutoBackup`, `lib/backup.ts`, `lib/fileSync.ts`). The `ExportPayload` is `version: 1`; bump it and migrate if the shape changes.
+- **Backup**: same multi-layer scheme as fasting-timer (`main.tsx` bootstrap restore, `useAutoBackup`, `lib/backup.ts`, `lib/fileSync.ts`). The `ExportPayload` is `version: 2`; `parsePayload` upgrades older versions via `migratePayload`.
 
 ## Conventions
 

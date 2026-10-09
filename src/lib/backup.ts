@@ -1,3 +1,4 @@
+import { migratePayload } from '../db/migrate';
 import type { ExportPayload } from '../db/types';
 
 // localStorage is a separate store from IndexedDB, so it survives an
@@ -9,20 +10,12 @@ const LOCAL_BACKUP_KEY = 'pill-scheduler-backup-v1';
 export type PayloadData = Omit<ExportPayload, 'version' | 'exportedAt'>;
 
 export function buildPayload(data: PayloadData): ExportPayload {
-  return { version: 1, exportedAt: Date.now(), ...data };
+  return { version: 2, exportedAt: Date.now(), ...data };
 }
 
-export function isValidPayload(
-  p: Partial<ExportPayload> | null
-): p is ExportPayload {
-  return (
-    !!p &&
-    p.version === 1 &&
-    !!p.settings &&
-    Array.isArray(p.people) &&
-    Array.isArray(p.medicines) &&
-    Array.isArray(p.doses)
-  );
+/** Validates a parsed backup and upgrades older versions; null if invalid. */
+export function parsePayload(p: unknown): ExportPayload | null {
+  return migratePayload(p);
 }
 
 /**
@@ -52,8 +45,7 @@ export function readLocalBackup(): ExportPayload | null {
   try {
     const raw = localStorage.getItem(LOCAL_BACKUP_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ExportPayload>;
-    return isValidPayload(parsed) ? parsed : null;
+    return parsePayload(JSON.parse(raw));
   } catch {
     return null;
   }

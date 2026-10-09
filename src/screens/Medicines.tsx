@@ -5,7 +5,7 @@ import { Modal } from '../components/Modal';
 import { PersonDot, PersonFilter } from '../components/PersonFilter';
 import type { Medicine, Person, Settings } from '../db/types';
 import { useLang, useT } from '../lib/i18n';
-import { foodLabel, frequencyLabel, periodLabel, timesLabel } from '../lib/labels';
+import { formatDose, frequencyLabel, relationLabel, periodLabel, timesLabel } from '../lib/labels';
 import { todayStr } from '../lib/time';
 import { MedicineForm } from './MedicineForm';
 
@@ -103,11 +103,10 @@ function MedicineCard({
   settings: Settings;
   onClick: () => void;
 }) {
-  const t = useT();
   const lang = useLang();
   const today = todayStr();
   const ended = !!med.endDate && med.endDate < today;
-  const food = foodLabel(lang, med);
+  const relation = relationLabel(lang, med.timing);
   return (
     <button
       type="button"
@@ -116,17 +115,14 @@ function MedicineCard({
     >
       <div className="flex items-center gap-2">
         <span className="font-semibold tracking-tight truncate">{med.name}</span>
-        {med.dose && <span className="text-sm text-ink-dim truncate">· {med.dose}</span>}
+        <span className="text-sm text-ink-dim truncate">· {formatDose(lang, med)}</span>
         <span className="ml-auto flex items-center gap-1.5 shrink-0 text-ink-dim">
-          {med.prescription && (
-            <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md border border-line">{t('meds.rx')}</span>
-          )}
           {med.reminders && <Icon name="bell" size={16} />}
         </span>
       </div>
       <div className="text-sm">
         <span className="font-medium">{timesLabel(med, person, settings.hourFormat)}</span>
-        {food && <span className="text-ink-dim"> · {food}</span>}
+        {relation && <span className="text-ink-dim"> · {relation}</span>}
       </div>
       <div className="text-xs text-ink-dim">
         {frequencyLabel(lang, med)} · {periodLabel(lang, med, today)}

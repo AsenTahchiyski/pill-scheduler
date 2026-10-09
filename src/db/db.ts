@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import { translate } from '../lib/i18n';
 import { doseKey } from '../lib/schedule';
 import { uid } from '../lib/uid';
+import { migrateMedicine, migratePerson } from './migrate';
 import type {
   DoseLog,
   DoseStatus,
@@ -34,6 +35,24 @@ class PillDB extends Dexie {
       doses: 'id, date, medicineId, personId',
       kv: 'key'
     });
+    // v2: dose as amount + unit, meal timing by count with its food relation,
+    // per-person bedtime; the prescription flag is gone.
+    this.version(2)
+      .stores({
+        settings: 'id',
+        people: 'id, createdAt',
+        medicines: 'id, personId',
+        doses: 'id, date, medicineId, personId',
+        kv: 'key'
+      })
+      .upgrade(async (tx) => {
+        await tx.table('medicines').toCollection().modify((m, ref) => {
+          ref.value = migrateMedicine(m);
+        });
+        await tx.table('people').toCollection().modify((p, ref) => {
+          ref.value = migratePerson(p);
+        });
+      });
   }
 }
 
@@ -77,6 +96,7 @@ export function newPerson(lang: Language, name: string, index: number): Person {
     name,
     color: PERSON_COLORS[index % PERSON_COLORS.length],
     meals: defaultMeals(lang),
+    bedtime: 22 * 60,
     createdAt: Date.now()
   };
 }
@@ -140,7 +160,8 @@ export async function setDoseStatus(
   med: Medicine,
   date: string,
   time: number,
-  status: DoseStatus
+  status: DoseStatus,
+  doseText: string
 ): Promise<void> {
   const id = doseKey(med.id, date, time);
   const existing = await db.doses.get(id);
@@ -157,7 +178,7 @@ export async function setDoseStatus(
     status,
     at: Date.now(),
     medName: med.name,
-    dose: med.dose
+    dose: doseText
   });
 }
 

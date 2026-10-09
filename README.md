@@ -7,17 +7,19 @@ Dexie). Bulgarian and English.
 ## Features
 
 - **Several people** (you, a child, a parent…), each with their own medicines.
-- **Usual meal times per person**, with any number of meals, each with a start
-  time and a duration. Medicines can be scheduled from them.
-- **Medicines**: add, edit or delete at any time. Each has a name, dose, a
-  prescription flag and notes.
-  - **Period**: ongoing, until a date, or for N days.
+- **Meal schedule per person** (Settings): any number of meals, each with a
+  start time and a duration, plus a bedtime. One person can skip dinner while
+  another has five meals.
+- **Medicines**: add, edit or delete at any time. Each has a name, a dose
+  (amount + tablet / drop / spray / ml) and notes.
+  - **Period**: no end date, until a date, or for N days.
   - **Days**: every day, chosen weekdays (N× per week), or every N days.
-  - **Times**: N times per day at set clock times, or at chosen meals.
-  - **Food**: any time, before, during or after food, with minutes for
-    before/after. "After" counts from the *end* of the meal (start + duration).
-  - **Quick schedules**: once/twice/3× a day, every 8 h, before/with/after
-    meals, at bedtime, every other day, once a week.
+  - **How often**: 1×, 2× or 3× a day, every 8 hours, or your own times.
+  - **Food / sleep**: any time, before / with / after food, or before sleep,
+    with minutes. Doses tied to food land on that person's meals from Settings
+    (1× = first meal, 2× = first and last, 3× = spread across the day). "After"
+    counts from the *end* of the meal (start + duration). Changing the meal
+    schedule moves those doses too.
   - **Show reminders** checkbox.
 - **Today** (home screen): the day's doses for everyone or one person. Mark each
   dose taken or skipped, see what's next and what's overdue, and browse other

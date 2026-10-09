@@ -8,7 +8,7 @@ import { notificationsSupported } from '../hooks/useReminders';
 import { useNow } from '../hooks/useNow';
 import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
-import { foodLabel } from '../lib/labels';
+import { entryDose, relationLabel } from '../lib/labels';
 import { dayEntries, type DayEntry } from '../lib/schedule';
 import { addDays, daysBetween, formatDate, formatTime, todayStr } from '../lib/time';
 
@@ -165,8 +165,9 @@ function DoseRow({
   const t = useT();
   const lang = useLang();
   const status = e.log?.status;
-  const food = e.med ? foodLabel(lang, e.med, e.meal) : '';
-  const mark = (s: DoseStatus) => e.med && void setDoseStatus(e.med, e.date, e.time, s);
+  const food = e.med ? relationLabel(lang, e.med.timing, e.meal) : '';
+  const dose = entryDose(lang, e);
+  const mark = (s: DoseStatus) => e.med && void setDoseStatus(e.med, e.date, e.time, s, dose);
 
   return (
     <li
@@ -194,7 +195,7 @@ function DoseRow({
         )}
         <div className="font-semibold tracking-tight truncate">
           {e.medName}
-          {e.dose && <span className="font-normal text-ink-dim"> · {e.dose}</span>}
+          {dose && <span className="font-normal text-ink-dim"> · {dose}</span>}
           {!e.med && <span className="font-normal text-ink-dim"> ({t('today.removed')})</span>}
         </div>
         {food && (

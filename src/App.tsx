@@ -66,7 +66,7 @@ export function App() {
           {tab === 'history' && (
             <HistoryScreen settings={s} people={people} medicines={medicines} doses={doses} />
           )}
-          {tab === 'people' && <PeopleScreen settings={s} people={people} medicines={medicines} />}
+          {tab === 'people' && <PeopleScreen people={people} medicines={medicines} />}
           {tab === 'settings' && <SettingsScreen data={data} />}
         </motion.div>
         <TabBar active={tab} onSelect={setTab} />

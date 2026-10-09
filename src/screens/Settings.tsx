@@ -3,13 +3,14 @@ import { Button } from '../components/Button';
 import { ColorSwatch } from '../components/ColorSwatch';
 import { Field } from '../components/Field';
 import { LanguagePicker } from '../components/LanguagePicker';
+import { MealSchedule } from '../components/MealSchedule';
 import { Modal } from '../components/Modal';
 import { Segmented } from '../components/Segmented';
 import { useToast } from '../components/Toast';
 import { db, restoreFromPayload, updateSettings } from '../db/db';
 import type { ExportPayload, HourFormat, Language, Settings, ThemeMode } from '../db/types';
 import { notificationsSupported, showNotification } from '../hooks/useReminders';
-import { buildPayload, downloadPayload, downloadText, isValidPayload, type PayloadData } from '../lib/backup';
+import { buildPayload, downloadPayload, downloadText, parsePayload, type PayloadData } from '../lib/backup';
 import {
   chooseBackupFile,
   clearBackupFile,
@@ -79,8 +80,8 @@ export function SettingsScreen({ data }: Props) {
 
   const handleFile = async (file: File) => {
     try {
-      const parsed = JSON.parse(await file.text()) as Partial<ExportPayload>;
-      if (!isValidPayload(parsed)) return flash(t('settings.toast.invalid'));
+      const parsed = parsePayload(JSON.parse(await file.text()));
+      if (!parsed) return flash(t('settings.toast.invalid'));
       setImporting(parsed);
     } catch {
       flash(t('settings.toast.unreadable'));
@@ -113,6 +114,10 @@ export function SettingsScreen({ data }: Props) {
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">{t('settings.title')}</h1>
         </header>
+
+        <section className={card}>
+          <MealSchedule people={data.people} />
+        </section>
 
         <section className={card}>
           <div>

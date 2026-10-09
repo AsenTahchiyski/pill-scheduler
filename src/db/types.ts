@@ -24,34 +24,40 @@ export interface Person {
   id: string;
   name: string;
   color: string; // hex
-  meals: Meal[];
+  meals: Meal[]; // the person's meal schedule, edited in Settings
+  bedtime: number; // minutes after midnight
   createdAt: number;
 }
 
-export type FoodRelation = 'none' | 'before' | 'during' | 'after';
+export type DoseUnit = 'pill' | 'drop' | 'spray' | 'ml';
+
+export type FoodRelation = 'before' | 'during' | 'after';
 
 export type Frequency =
   | { kind: 'daily' }
   | { kind: 'weekdays'; days: number[] } // 0 = Sunday … 6 = Saturday
   | { kind: 'interval'; everyDays: number }; // counted from startDate
 
+/**
+ * When in the day doses are due. Meal and sleep timings follow the person's
+ * schedule from Settings, so editing that schedule moves the doses too.
+ */
 export type Timing =
   | { mode: 'times'; times: number[] } // fixed clock times, minutes after midnight
-  | { mode: 'meals'; mealIds: string[] }; // derived from the person's meals
+  | { mode: 'meals'; count: number; relation: FoodRelation; offset: number }
+  | { mode: 'sleep'; offset: number }; // offset minutes before bedtime
 
 export interface Medicine {
   id: string;
   personId: string;
   name: string;
-  dose: string; // free text, e.g. "1 tablet", "5 ml"
-  prescription: boolean;
+  doseAmount: number;
+  doseUnit: DoseUnit;
   notes: string;
   startDate: string; // YYYY-MM-DD, local
-  endDate: string | null; // inclusive; null = ongoing
+  endDate: string | null; // inclusive; null = no end date
   frequency: Frequency;
   timing: Timing;
-  food: FoodRelation;
-  foodOffset: number; // minutes, used for 'before' / 'after'
   reminders: boolean;
   createdAt: number;
   updatedAt: number;
@@ -69,11 +75,11 @@ export interface DoseLog {
   status: DoseStatus;
   at: number; // epoch ms when recorded
   medName: string;
-  dose: string;
+  dose: string; // formatted, e.g. "2 tablets"
 }
 
 export interface ExportPayload {
-  version: 1;
+  version: 2;
   exportedAt: number;
   settings: Settings;
   people: Person[];

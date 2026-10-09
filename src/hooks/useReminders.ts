@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { DoseLog, Language, Medicine, Person } from '../db/types';
-import { foodLabel } from '../lib/labels';
+import { formatDose, relationLabel } from '../lib/labels';
 import { translate } from '../lib/i18n';
 import { dayEntries } from '../lib/schedule';
 import { minutesNow, todayStr } from '../lib/time';
@@ -67,7 +67,9 @@ export function useReminders(
         const title = e.person
           ? translate(lang, 'notif.titleFor', { med: e.medName, person: e.person.name })
           : e.medName;
-        const body = [e.dose, foodLabel(lang, e.med, e.meal)].filter(Boolean).join(' · ');
+        const body = [formatDose(lang, e.med), relationLabel(lang, e.med.timing, e.meal)]
+          .filter(Boolean)
+          .join(' · ');
         void showNotification(title, body, e.key);
         notified.add(e.key);
         changed = true;

@@ -2,8 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { ensureSettings, isDatabaseEmpty, restoreFromPayload } from './db/db';
-import type { ExportPayload } from './db/types';
-import { isValidPayload, readLocalBackup, requestPersistentStorage } from './lib/backup';
+import { parsePayload, readLocalBackup, requestPersistentStorage } from './lib/backup';
 import { readDefaultBackupFile } from './lib/fileSync';
 import { applyAccent, applyThemeMode } from './theme/ThemeProvider';
 import './index.css';
@@ -17,11 +16,7 @@ async function bootstrap() {
   // storage, before fresh defaults get created.
   try {
     if (await isDatabaseEmpty()) {
-      let backup = readLocalBackup();
-      if (!backup) {
-        const fromFile = (await readDefaultBackupFile()) as Partial<ExportPayload> | null;
-        if (isValidPayload(fromFile)) backup = fromFile;
-      }
+      const backup = readLocalBackup() ?? parsePayload(await readDefaultBackupFile());
       if (backup) await restoreFromPayload(backup);
     }
   } catch {

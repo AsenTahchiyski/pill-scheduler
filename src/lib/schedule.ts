@@ -1,4 +1,4 @@
-import type { DoseLog, Meal, Medicine, Person } from '../db/types';
+import type { DoseLog, Meal, Medicine, Person, Timing } from '../db/types';
 import { daysBetween, weekday } from './time';
 
 export const doseKey = (medicineId: string, date: string, time: number) =>
@@ -18,7 +18,6 @@ export interface DayEntry {
   person: Person | undefined;
   log: DoseLog | undefined;
   medName: string;
-  dose: string;
 }
 
 export function isActiveOn(med: Medicine, date: string): boolean {
@@ -35,30 +34,48 @@ export function isActiveOn(med: Medicine, date: string): boolean {
   }
 }
 
+const clampDay = (t: number) => Math.min(24 * 60 - 1, Math.max(0, t));
+
 /**
  * Clock time of a meal-based dose. "Before" counts back from the meal start,
  * "after" counts from the meal end (start + duration), "during" is the start.
  */
-export function mealDoseTime(med: Pick<Medicine, 'food' | 'foodOffset'>, meal: Meal): number {
-  let t = meal.time;
-  if (med.food === 'before') t = meal.time - med.foodOffset;
-  if (med.food === 'after') t = meal.time + meal.duration + med.foodOffset;
-  return Math.min(24 * 60 - 1, Math.max(0, t));
+export function mealDoseTime(
+  timing: Pick<Extract<Timing, { mode: 'meals' }>, 'relation' | 'offset'>,
+  meal: Meal
+): number {
+  if (timing.relation === 'before') return clampDay(meal.time - timing.offset);
+  if (timing.relation === 'after') return clampDay(meal.time + meal.duration + timing.offset);
+  return meal.time;
+}
+
+/**
+ * Which of a person's meals get a dose when taken `count` times a day:
+ * spread evenly, always including the first meal (and the last when
+ * count > 1). With fewer meals than doses, every meal gets one.
+ */
+export function pickMeals(meals: Meal[], count: number): Meal[] {
+  const sorted = [...meals].sort((a, b) => a.time - b.time);
+  if (count >= sorted.length) return sorted;
+  if (count <= 1) return sorted.slice(0, 1);
+  const idx = new Set(
+    Array.from({ length: count }, (_, i) => Math.round((i * (sorted.length - 1)) / (count - 1)))
+  );
+  return sorted.filter((_, i) => idx.has(i));
 }
 
 /** Dose times on any active day, sorted. */
-export function doseTimes(
-  med: Pick<Medicine, 'timing' | 'food' | 'foodOffset'>,
-  person: Person | undefined
-): ScheduledDose[] {
+export function doseTimes(timing: Timing, person: Person | undefined): ScheduledDose[] {
   let out: ScheduledDose[];
-  if (med.timing.mode === 'times') {
-    out = med.timing.times.map((time) => ({ time }));
+  if (timing.mode === 'times') {
+    out = timing.times.map((time) => ({ time }));
+  } else if (timing.mode === 'meals') {
+    out = pickMeals(person?.meals ?? [], timing.count).map((meal) => ({
+      time: mealDoseTime(timing, meal),
+      meal
+    }));
   } else {
-    const ids = med.timing.mealIds;
-    out = (person?.meals ?? [])
-      .filter((m) => ids.includes(m.id))
-      .map((meal) => ({ time: mealDoseTime(med, meal), meal }));
+    out = person ? [{ time: clampDay(person.bedtime - timing.offset) }] : [];
   }
   // One entry per clock time (the dose log is keyed by it).
   const seen = new Set<number>();
@@ -82,7 +99,7 @@ export function dayEntries(
   for (const med of meds) {
     if (!isActiveOn(med, date)) continue;
     const person = personById.get(med.personId);
-    for (const d of doseTimes(med, person)) {
+    for (const d of doseTimes(med.timing, person)) {
       const key = doseKey(med.id, date, d.time);
       entries.push({
         key,
@@ -92,8 +109,7 @@ export function dayEntries(
         med,
         person,
         log: logByKey.get(key),
-        medName: med.name,
-        dose: med.dose
+        medName: med.name
       });
       logByKey.delete(key);
     }
@@ -109,8 +125,7 @@ export function dayEntries(
       med: medById.get(log.medicineId),
       person: personById.get(log.personId),
       log,
-      medName: log.medName,
-      dose: log.dose
+      medName: log.medName
     });
   }
 

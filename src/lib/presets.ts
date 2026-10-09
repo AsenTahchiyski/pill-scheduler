@@ -1,26 +1,11 @@
-import type { FoodRelation, Frequency, Person, Timing } from '../db/types';
-import { todayStr, weekday } from './time';
+import type { Timing } from '../db/types';
 
-export interface ScheduleFields {
-  frequency: Frequency;
-  timing: Timing;
-  food: FoodRelation;
-  foodOffset: number;
-}
+/** "How often" choices in the medicine form. Numbers are doses per day. */
+export type Often = 1 | 2 | 3 | 'every8h' | 'custom';
 
-export interface Preset {
-  id: string;
-  labelKey: string;
-  apply: (person: Person | undefined) => ScheduleFields;
-}
+export const OFTEN_COUNTS = [1, 2, 3] as const;
 
-const h = (hours: number) => hours * 60;
-const daily: Frequency = { kind: 'daily' };
-const times = (...t: number[]): Timing => ({ mode: 'times', times: t.map(h) });
-const allMeals = (p: Person | undefined): Timing => ({
-  mode: 'meals',
-  mealIds: (p?.meals ?? []).map((m) => m.id)
-});
+export const EVERY_8H = [6 * 60, 14 * 60, 22 * 60];
 
 /** Default clock times for "N times per day". */
 export function defaultTimes(count: number): number[] {
@@ -35,65 +20,16 @@ export function defaultTimes(count: number): number[] {
   return hours.map((x) => Math.round(x * 60) % (24 * 60));
 }
 
-export const PRESETS: Preset[] = [
-  {
-    id: 'once',
-    labelKey: 'preset.once',
-    apply: () => ({ frequency: daily, timing: times(8), food: 'none', foodOffset: 0 })
-  },
-  {
-    id: 'twice',
-    labelKey: 'preset.twice',
-    apply: () => ({ frequency: daily, timing: times(8, 20), food: 'none', foodOffset: 0 })
-  },
-  {
-    id: 'three',
-    labelKey: 'preset.three',
-    apply: () => ({ frequency: daily, timing: times(8, 14, 20), food: 'none', foodOffset: 0 })
-  },
-  {
-    id: 'every8h',
-    labelKey: 'preset.every8h',
-    apply: () => ({ frequency: daily, timing: times(6, 14, 22), food: 'none', foodOffset: 0 })
-  },
-  {
-    id: 'beforeMeals',
-    labelKey: 'preset.beforeMeals',
-    apply: (p) => ({ frequency: daily, timing: allMeals(p), food: 'before', foodOffset: 30 })
-  },
-  {
-    id: 'withMeals',
-    labelKey: 'preset.withMeals',
-    apply: (p) => ({ frequency: daily, timing: allMeals(p), food: 'during', foodOffset: 0 })
-  },
-  {
-    id: 'afterMeals',
-    labelKey: 'preset.afterMeals',
-    apply: (p) => ({ frequency: daily, timing: allMeals(p), food: 'after', foodOffset: 30 })
-  },
-  {
-    id: 'bedtime',
-    labelKey: 'preset.bedtime',
-    apply: () => ({ frequency: daily, timing: times(22), food: 'none', foodOffset: 0 })
-  },
-  {
-    id: 'everyOther',
-    labelKey: 'preset.everyOther',
-    apply: () => ({
-      frequency: { kind: 'interval', everyDays: 2 },
-      timing: times(8),
-      food: 'none',
-      foodOffset: 0
-    })
-  },
-  {
-    id: 'weekly',
-    labelKey: 'preset.weekly',
-    apply: () => ({
-      frequency: { kind: 'weekdays', days: [weekday(todayStr())] },
-      timing: times(8),
-      food: 'none',
-      foodOffset: 0
-    })
+const same = (a: number[], b: number[]) =>
+  a.length === b.length && [...a].sort((x, y) => x - y).every((v, i) => v === b[i]);
+
+/** Which "How often" chip a timing corresponds to. */
+export function oftenOf(timing: Timing): Often {
+  if (timing.mode === 'sleep') return 1;
+  if (timing.mode === 'meals') {
+    return timing.count >= 1 && timing.count <= 3 ? (timing.count as 1 | 2 | 3) : 'custom';
   }
-];
+  if (same(timing.times, EVERY_8H)) return 'every8h';
+  for (const n of OFTEN_COUNTS) if (same(timing.times, defaultTimes(n))) return n;
+  return 'custom';
+}

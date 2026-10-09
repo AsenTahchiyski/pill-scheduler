@@ -7,11 +7,11 @@ import { PersonFilter } from '../components/PersonFilter';
 import { Segmented } from '../components/Segmented';
 import { Stepper } from '../components/Stepper';
 import { deleteMedicine, saveMedicine } from '../db/db';
-import type { FoodRelation, Frequency, HourFormat, Medicine, Person } from '../db/types';
+import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
 import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
-import { foodLabel } from '../lib/labels';
-import { defaultTimes, PRESETS, type ScheduleFields } from '../lib/presets';
+import { DOSE_UNITS, relationLabel } from '../lib/labels';
+import { defaultTimes, EVERY_8H, OFTEN_COUNTS, oftenOf, type Often } from '../lib/presets';
 import { doseTimes } from '../lib/schedule';
 import {
   addDays,
@@ -27,6 +27,10 @@ import {
 import { uid } from '../lib/uid';
 
 type EndMode = 'ongoing' | 'until' | 'days';
+type Relation = 'none' | FoodRelation | 'sleep';
+
+const RELATIONS: Relation[] = ['none', 'before', 'during', 'after', 'sleep'];
+const OFTENS: Often[] = [...OFTEN_COUNTS, 'every8h', 'custom'];
 
 interface Props {
   initial: Medicine | null; // null = new
@@ -42,19 +46,29 @@ function blankMedicine(personId: string): Medicine {
     id: uid(),
     personId,
     name: '',
-    dose: '',
-    prescription: false,
+    doseAmount: 1,
+    doseUnit: 'pill',
     notes: '',
     startDate: todayStr(),
     endDate: null,
     frequency: { kind: 'daily' },
     timing: { mode: 'times', times: defaultTimes(1) },
-    food: 'none',
-    foodOffset: 30,
     reminders: true,
     createdAt: now,
     updatedAt: now
   };
+}
+
+/** Splits a stored timing into the form's independent "how often" and "relation" choices. */
+function timingState(timing: Timing) {
+  if (timing.mode === 'times') {
+    return { often: oftenOf(timing), relation: 'none' as Relation, offset: 30, times: timing.times };
+  }
+  if (timing.mode === 'sleep') {
+    return { often: 1 as Often, relation: 'sleep' as Relation, offset: timing.offset, times: defaultTimes(1) };
+  }
+  const count = Math.min(3, Math.max(1, timing.count)) as 1 | 2 | 3;
+  return { often: count as Often, relation: timing.relation as Relation, offset: timing.offset, times: defaultTimes(count) };
 }
 
 export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onDone }: Props) {
@@ -65,6 +79,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
   const [daysCount, setDaysCount] = useState(() =>
     initial?.endDate ? daysBetween(initial.startDate, initial.endDate) + 1 : 7
   );
+  const [timing, setTiming] = useState(() => timingState(d.timing));
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -77,48 +92,60 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
       : endMode === 'days'
         ? addDays(d.startDate, daysCount - 1)
         : (d.endDate ?? addDays(d.startDate, 6));
-  const preview = doseTimes(d, person);
   const fmtDay = (s: string) =>
     formatDate(s, LOCALE[lang], { weekday: 'short', day: 'numeric', month: 'short' });
 
-  const applySchedule = (fields: ScheduleFields) => set(fields);
+  const builtTiming: Timing =
+    timing.relation === 'none'
+      ? { mode: 'times', times: timing.times }
+      : timing.relation === 'sleep'
+        ? { mode: 'sleep', offset: timing.offset }
+        : {
+            mode: 'meals',
+            count: typeof timing.often === 'number' ? timing.often : 1,
+            relation: timing.relation,
+            offset: timing.relation === 'during' ? 0 : timing.offset
+          };
+  const preview = doseTimes(builtTiming, person);
+  const mealCount = person?.meals.length ?? 0;
 
-  const changePerson = (personId: string) => {
-    const p = people.find((x) => x.id === personId);
-    // Meal ids are per person, so re-point meal timing at the new person's meals.
-    set(
-      d.timing.mode === 'meals'
-        ? { personId, timing: { mode: 'meals', mealIds: (p?.meals ?? []).map((m) => m.id) } }
-        : { personId }
-    );
+  // Choices adjust each other: meal relations need 1–3× a day and
+  // "before sleep" is once a day.
+  const chooseOften = (often: Often) => {
+    const relation =
+      (timing.relation === 'sleep' && often !== 1) ||
+      (timing.relation !== 'none' && typeof often !== 'number')
+        ? 'none'
+        : timing.relation;
+    const times =
+      often === 'every8h' ? EVERY_8H : often === 'custom' ? timing.times : defaultTimes(often);
+    setTiming({ ...timing, often, relation, times });
   };
-
-  const changeTimingMode = (mode: 'times' | 'meals') => {
-    if (mode === d.timing.mode) return;
-    if (mode === 'times') {
-      set({ timing: { mode: 'times', times: preview.map((x) => x.time) } });
-    } else {
-      set({
-        timing: { mode: 'meals', mealIds: (person?.meals ?? []).map((m) => m.id) },
-        food: d.food === 'none' ? 'during' : d.food
-      });
-    }
+  const chooseRelation = (relation: Relation) => {
+    let often = timing.often;
+    if (relation === 'sleep') often = 1;
+    else if (relation !== 'none' && typeof often !== 'number') often = 1;
+    const offset = relation === 'before' || relation === 'after' ? 30 : 0;
+    const times = typeof often === 'number' && often !== timing.often ? defaultTimes(often) : timing.times;
+    setTiming({ often, relation, offset, times });
   };
 
   const save = async () => {
     if (!d.name.trim()) return setError(t('med.err.name'));
+    if (!(d.doseAmount > 0)) return setError(t('med.err.dose'));
     if (d.frequency.kind === 'weekdays' && d.frequency.days.length === 0)
       return setError(t('med.err.days'));
     if (preview.length === 0) return setError(t('med.err.times'));
     if (endDate && endDate < d.startDate) return setError(t('med.err.end'));
-    const times = d.timing.mode === 'times' ? d.timing : null;
     await saveMedicine({
       ...d,
       name: d.name.trim(),
-      dose: d.dose.trim(),
       notes: d.notes.trim(),
       endDate,
-      timing: times ? { mode: 'times', times: [...new Set(times.times)].sort((a, b) => a - b) } : d.timing
+      timing:
+        builtTiming.mode === 'times'
+          ? { mode: 'times', times: [...new Set(builtTiming.times)].sort((a, b) => a - b) }
+          : builtTiming
     });
     onDone();
   };
@@ -146,6 +173,15 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
   }
 
   const section = 'grid gap-4 rounded-2xl border border-line bg-surface p-4';
+  const chip = (active: boolean) =>
+    cx(
+      'h-10 px-3 rounded-full border text-sm font-medium transition-colors',
+      active
+        ? 'border-accent bg-accent text-accent-contrast'
+        : 'border-line bg-surface-2 text-ink-dim hover:border-accent/50'
+    );
+  const oftenLabel = (o: Often) =>
+    typeof o === 'number' ? t('often.n', { n: o }) : t(`often.${o}`);
 
   return (
     <div className="grid gap-4">
@@ -155,7 +191,12 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
 
       {people.length > 1 && (
         <Field group label={t('med.person')}>
-          <PersonFilter people={people} value={d.personId} allowAll={false} onChange={(id) => id && changePerson(id)} />
+          <PersonFilter
+            people={people}
+            value={d.personId}
+            allowAll={false}
+            onChange={(id) => id && set({ personId: id })}
+          />
         </Field>
       )}
 
@@ -167,32 +208,31 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
           onChange={(e) => set({ name: e.target.value })}
         />
       </Field>
-      <Field label={t('med.dose')}>
-        <input
-          className="input"
-          value={d.dose}
-          placeholder={t('med.dosePh')}
-          onChange={(e) => set({ dose: e.target.value })}
-        />
-      </Field>
-      <Checkbox
-        checked={d.prescription}
-        onChange={(prescription) => set({ prescription })}
-        label={t('med.prescription')}
-      />
 
-      <Field group label={t('med.presets')}>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => applySchedule(p.apply(person))}
-              className="h-9 px-3 rounded-full border border-line bg-surface text-sm hover:border-accent hover:text-accent transition-colors"
-            >
-              {t(p.labelKey)}
-            </button>
-          ))}
+      <Field group label={t('med.dose')}>
+        <div className="grid grid-cols-[6rem_1fr] gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            className="input text-center"
+            aria-label={t('med.amount')}
+            value={Number.isFinite(d.doseAmount) ? d.doseAmount : ''}
+            onChange={(e) => set({ doseAmount: parseFloat(e.target.value) })}
+          />
+          <select
+            className="input"
+            aria-label={t('med.unit')}
+            value={d.doseUnit}
+            onChange={(e) => set({ doseUnit: e.target.value as DoseUnit })}
+          >
+            {DOSE_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {t(`unit.${u}.label`)}
+              </option>
+            ))}
+          </select>
         </div>
       </Field>
 
@@ -245,12 +285,13 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
             </Field>
           )}
         </div>
+        {endMode === 'ongoing' && <p className="text-sm text-ink-dim -mt-2">{t('med.end.ongoingHint')}</p>}
         {endMode === 'days' && endDate && (
           <p className="text-sm text-ink-dim -mt-2">{t('med.lastDay', { date: fmtDay(endDate) })}</p>
         )}
       </div>
 
-      {/* Frequency */}
+      {/* Which days */}
       <div className={section}>
         <Field group label={t('med.frequency')}>
           <Segmented
@@ -294,30 +335,39 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         )}
       </div>
 
-      {/* Food */}
+      {/* Time of day: how often + relation to food / sleep */}
       <div className={section}>
-        <Field group label={t('med.food')}>
-          <Segmented<FoodRelation>
-            id="med-food"
-            ariaLabel={t('med.food')}
-            value={d.food}
-            onChange={(food) => set({ food })}
-            options={(['none', 'before', 'during', 'after'] as const)
-              .filter((f) => f !== 'none' || d.timing.mode === 'times')
-              .map((f) => ({ value: f, label: t(`food.${f}`) }))}
-          />
+        <Field group label={t('med.often')}>
+          <div className="flex flex-wrap gap-2">
+            {OFTENS.map((o) => (
+              <button key={o} type="button" aria-pressed={timing.often === o} className={chip(timing.often === o)} onClick={() => chooseOften(o)}>
+                {oftenLabel(o)}
+              </button>
+            ))}
+          </div>
         </Field>
-        {(d.food === 'before' || d.food === 'after') && (
-          <Field group label={t('med.foodOffset', { rel: t(`med.foodOffset.${d.food}`) })}>
+
+        <Field group label={t('med.relation')}>
+          <div className="flex flex-wrap gap-2">
+            {RELATIONS.map((r) => (
+              <button key={r} type="button" aria-pressed={timing.relation === r} className={chip(timing.relation === r)} onClick={() => chooseRelation(r)}>
+                {t(`rel.${r}`)}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {(timing.relation === 'before' || timing.relation === 'after' || timing.relation === 'sleep') && (
+          <Field group label={t(`med.offset.${timing.relation}`)}>
             <div className="flex flex-wrap items-center gap-2">
               {[0, 15, 30, 60].map((m) => (
                 <button
                   key={m}
                   type="button"
-                  onClick={() => set({ foodOffset: m })}
+                  onClick={() => setTiming({ ...timing, offset: m })}
                   className={cx(
                     'h-11 px-3 rounded-xl border text-sm font-medium',
-                    d.foodOffset === m
+                    timing.offset === m
                       ? 'border-accent text-accent bg-[rgb(var(--accent)/0.1)]'
                       : 'border-line bg-surface-2 text-ink-dim'
                   )}
@@ -330,81 +380,54 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
                 inputMode="numeric"
                 min={0}
                 max={240}
-                value={d.foodOffset}
-                aria-label={t('med.foodOffset', { rel: t(`med.foodOffset.${d.food}`) })}
-                onChange={(e) => set({ foodOffset: Math.max(0, Math.min(240, Number(e.target.value) || 0)) })}
+                value={timing.offset}
+                aria-label={t(`med.offset.${timing.relation}`)}
+                onChange={(e) =>
+                  setTiming({ ...timing, offset: Math.max(0, Math.min(240, Number(e.target.value) || 0)) })
+                }
                 className="h-11 w-20 text-center rounded-xl border border-line bg-surface-2"
               />
             </div>
           </Field>
         )}
-      </div>
 
-      {/* Times of day */}
-      <div className={section}>
-        <Field group label={t('med.timing')}>
-          <Segmented
-            id="med-timing"
-            ariaLabel={t('med.timing')}
-            value={d.timing.mode}
-            onChange={changeTimingMode}
-            options={[
-              { value: 'times', label: t('med.timing.times') },
-              { value: 'meals', label: t('med.timing.meals') }
-            ]}
-          />
-        </Field>
-
-        {d.timing.mode === 'times' ? (
+        {timing.relation === 'none' && (
           <TimesEditor
-            times={d.timing.times}
-            onChange={(times) => set({ timing: { mode: 'times', times } })}
+            times={timing.times}
+            editableCount={timing.often === 'custom'}
+            onChange={(times) => setTiming({ ...timing, times })}
           />
-        ) : !person || person.meals.length === 0 ? (
-          <p className="text-sm text-ink-dim">{t('med.noMeals')}</p>
-        ) : (
-          <Field group label={t('med.mealsPick')}>
-            <div className="grid gap-3">
-              {person.meals.map((meal) => {
-                const ids = d.timing.mode === 'meals' ? d.timing.mealIds : [];
-                const on = ids.includes(meal.id);
-                return (
-                  <Checkbox
-                    key={meal.id}
-                    checked={on}
-                    onChange={(c) =>
-                      set({
-                        timing: {
-                          mode: 'meals',
-                          mealIds: c ? [...ids, meal.id] : ids.filter((x) => x !== meal.id)
-                        }
-                      })
-                    }
-                    label={meal.name}
-                    hint={`${formatTime(meal.time, hourFormat)} · ${meal.duration} ${t('common.min')}`}
-                  />
-                );
-              })}
-            </div>
-          </Field>
         )}
 
-        <div className="rounded-xl bg-[rgb(var(--accent)/0.08)] px-3 py-2.5 text-sm">
-          <span className="text-ink-dim">{t('med.preview')}: </span>
-          {preview.length === 0 ? (
-            <span className="text-ink-dim">{t('med.previewNone')}</span>
-          ) : (
-            preview.map((x, i) => (
-              <span key={x.time}>
-                {i > 0 && ', '}
-                <span className="font-semibold">{formatTime(x.time, hourFormat)}</span>
-                {x.meal && <span className="text-ink-dim"> ({foodLabel(lang, d, x.meal)})</span>}
-              </span>
-            ))
+        {timing.relation !== 'none' && timing.relation !== 'sleep' && typeof timing.often === 'number' && timing.often > mealCount && (
+          <p className="text-sm text-[rgb(255,107,107)]">
+            {mealCount === 0
+              ? t('med.noMeals', { name: person?.name ?? '' })
+              : t('med.fewerMeals', { name: person?.name ?? '', n: mealCount })}
+          </p>
+        )}
+
+        <div className="rounded-xl bg-[rgb(var(--accent)/0.08)] px-3 py-2.5 text-sm grid gap-0.5">
+          <div>
+            <span className="text-ink-dim">{t('med.preview')}: </span>
+            {preview.length === 0 ? (
+              <span className="text-ink-dim">{t('med.previewNone')}</span>
+            ) : (
+              preview.map((x, i) => (
+                <span key={x.time}>
+                  {i > 0 && ', '}
+                  <span className="font-semibold">{formatTime(x.time, hourFormat)}</span>
+                  {x.meal && <span className="text-ink-dim"> ({relationLabel(lang, builtTiming, x.meal)})</span>}
+                </span>
+              ))
+            )}
+          </div>
+          {timing.relation === 'sleep' && person && (
+            <div className="text-ink-dim">
+              {relationLabel(lang, builtTiming)} · {t('med.bedtimeIs', { time: formatTime(person.bedtime, hourFormat) })}
+            </div>
           )}
-          {d.timing.mode === 'times' && d.food !== 'none' && (
-            <div className="text-ink-dim mt-0.5">{foodLabel(lang, d)}</div>
-          )}
+          {timing.relation !== 'none' && <div className="text-xs text-ink-dim">{t('med.scheduleInSettings')}</div>}
         </div>
       </div>
 
@@ -484,50 +507,53 @@ function WeekdayPicker({
   );
 }
 
-function TimesEditor({ times, onChange }: { times: number[]; onChange: (t: number[]) => void }) {
+function TimesEditor({
+  times,
+  editableCount,
+  onChange
+}: {
+  times: number[];
+  editableCount: boolean;
+  onChange: (t: number[]) => void;
+}) {
   const t = useT();
   return (
-    <div className="grid gap-3">
-      <Field group label={t('med.timesPerDay')}>
-        <Stepper
-          ariaLabel={t('med.timesPerDay')}
-          min={1}
-          max={12}
-          value={Math.max(1, times.length)}
-          onChange={(n) => onChange(defaultTimes(n))}
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-2">
-        {times.map((time, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <input
-              type="time"
-              className="input"
-              value={toHHMM(time)}
-              onChange={(e) =>
-                e.target.value && onChange(times.map((x, j) => (j === i ? fromHHMM(e.target.value) : x)))
-              }
-            />
-            {times.length > 1 && (
-              <button
-                type="button"
-                aria-label={t('common.remove')}
-                onClick={() => onChange(times.filter((_, j) => j !== i))}
-                className="h-12 w-9 shrink-0 grid place-items-center text-ink-dim hover:text-ink"
-              >
-                <Icon name="x" size={18} />
-              </button>
-            )}
-          </div>
-        ))}
+    <Field group label={t('med.times')}>
+      <div className="grid gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          {times.map((time, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <input
+                type="time"
+                className="input"
+                value={toHHMM(time)}
+                onChange={(e) =>
+                  e.target.value && onChange(times.map((x, j) => (j === i ? fromHHMM(e.target.value) : x)))
+                }
+              />
+              {editableCount && times.length > 1 && (
+                <button
+                  type="button"
+                  aria-label={t('common.remove')}
+                  onClick={() => onChange(times.filter((_, j) => j !== i))}
+                  className="h-12 w-9 shrink-0 grid place-items-center text-ink-dim hover:text-ink"
+                >
+                  <Icon name="x" size={18} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {editableCount && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange([...times, Math.min(23 * 60, (times[times.length - 1] ?? 7 * 60) + 60)])}
+          >
+            <Icon name="plus" size={16} /> {t('med.addTime')}
+          </Button>
+        )}
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onChange([...times, Math.min(23 * 60, (times[times.length - 1] ?? 7 * 60) + 60)])}
-      >
-        <Icon name="plus" size={16} /> {t('med.addTime')}
-      </Button>
-    </div>
+    </Field>
   );
 }

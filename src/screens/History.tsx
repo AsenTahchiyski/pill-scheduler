@@ -4,6 +4,7 @@ import { PersonDot, PersonFilter } from '../components/PersonFilter';
 import type { DoseLog, Medicine, Person, Settings } from '../db/types';
 import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
+import { entryDose } from '../lib/labels';
 import { dayEntries } from '../lib/schedule';
 import { addDays, formatDate, formatTime, todayStr } from '../lib/time';
 
@@ -82,7 +83,7 @@ export function HistoryScreen({ settings, people, medicines, doses }: Props) {
                         )}
                         <span className="truncate">
                           {e.medName}
-                          {e.dose && <span className="text-ink-dim"> · {e.dose}</span>}
+                          {entryDose(lang, e) && <span className="text-ink-dim"> · {entryDose(lang, e)}</span>}
                         </span>
                         <span className="ml-auto text-xs text-ink-dim shrink-0">
                           {t(status ? `history.${status}` : 'history.missed')}

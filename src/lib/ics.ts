@@ -1,5 +1,5 @@
 import type { Language, Medicine, Person } from '../db/types';
-import { foodLabel } from './labels';
+import { formatDose, relationLabel } from './labels';
 import { translate } from './i18n';
 import { doseTimes, isActiveOn } from './schedule';
 import { addDays, todayStr, toHHMM } from './time';
@@ -71,11 +71,11 @@ export function buildIcs(lang: Language, people: Person[], meds: Medicine[]): st
     const start = firstDay(med);
     if (!start || (med.endDate && med.endDate < todayStr())) continue;
     const person = people.find((p) => p.id === med.personId);
-    for (const d of doseTimes(med, person)) {
+    for (const d of doseTimes(med.timing, person)) {
       const summary = person
         ? translate(lang, 'notif.titleFor', { med: med.name, person: person.name })
         : med.name;
-      const desc = [med.dose, foodLabel(lang, med, d.meal), med.notes]
+      const desc = [formatDose(lang, med), relationLabel(lang, med.timing, d.meal), med.notes]
         .filter(Boolean)
         .join('\n');
       lines.push(
