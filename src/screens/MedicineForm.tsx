@@ -12,6 +12,7 @@ import { deleteMedicine, saveMedicine } from '../db/db';
 import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
 import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
+import { googleCalendarUrl } from '../lib/gcal';
 import { DOSE_UNITS, relationLabel } from '../lib/labels';
 import { defaultTimes, EVERY_8H, OFTEN_COUNTS, oftenOf, type Often } from '../lib/presets';
 import { doseTimes } from '../lib/schedule';
@@ -151,6 +152,26 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
     setTiming({ often, relation, offset, times });
   };
 
+  // The medicine as it would be saved (used by Save and the calendar links).
+  const draft: Medicine = {
+    ...d,
+    name: d.name.trim(),
+    doseAmount: dose ?? 1,
+    frequency: d.frequency.kind === 'interval' ? { kind: 'interval', everyDays: everyDays ?? 2 } : d.frequency,
+    notes: d.notes.trim(),
+    endDate,
+    timing:
+      builtTiming.mode === 'times'
+        ? { mode: 'times', times: [...new Set(builtTiming.times)].sort((a, b) => a - b) }
+        : builtTiming
+  };
+  const canExport =
+    !invalid &&
+    !!draft.name &&
+    preview.length > 0 &&
+    (d.frequency.kind !== 'weekdays' || d.frequency.days.length > 0) &&
+    !(endDate && endDate < d.startDate);
+
   const save = async () => {
     if (invalid || dose === null) return;
     if (!d.name.trim()) return setError(t('med.err.name'));
@@ -158,18 +179,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
       return setError(t('med.err.days'));
     if (preview.length === 0) return setError(t('med.err.times'));
     if (endDate && endDate < d.startDate) return setError(t('med.err.end'));
-    await saveMedicine({
-      ...d,
-      name: d.name.trim(),
-      doseAmount: dose,
-      frequency: d.frequency.kind === 'interval' ? { kind: 'interval', everyDays: everyDays ?? 2 } : d.frequency,
-      notes: d.notes.trim(),
-      endDate,
-      timing:
-        builtTiming.mode === 'times'
-          ? { mode: 'times', times: [...new Set(builtTiming.times)].sort((a, b) => a - b) }
-          : builtTiming
-    });
+    await saveMedicine(draft);
     onDone();
   };
 
@@ -460,6 +470,32 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
           onChange={(e) => set({ notes: e.target.value })}
         />
       </Field>
+
+      {canExport && (
+        <Field group label={t('med.gcal')} hint={t('med.gcal.hint')}>
+          <div className="flex flex-wrap gap-2">
+            {preview.map((dose) => {
+              const url = googleCalendarUrl(lang, draft, person, dose);
+              return (
+                url && (
+                  <a
+                    key={dose.time}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 px-3 rounded-full border border-line bg-surface text-sm font-medium inline-flex items-center gap-1.5 hover:border-accent hover:text-accent transition-colors"
+                  >
+                    <Icon name="today" size={16} />
+                    {preview.length > 1
+                      ? formatTime(dose.time, hourFormat)
+                      : t('med.gcal.add')}
+                  </a>
+                )
+              );
+            })}
+          </div>
+        </Field>
+      )}
 
       {error && <p className="text-sm text-[rgb(255,107,107)]">{error}</p>}
 

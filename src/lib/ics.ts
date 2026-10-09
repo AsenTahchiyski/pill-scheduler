@@ -13,7 +13,7 @@ const esc = (s: string) =>
   s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
 const icsDate = (date: string) => date.replace(/-/g, '');
-const icsDateTime = (date: string, min: number) =>
+export const icsDateTime = (date: string, min: number) =>
   `${icsDate(date)}T${toHHMM(min).replace(':', '')}00`;
 
 // RFC 5545 lines must be folded at 75 octets (UTF-8), continuation lines
@@ -38,7 +38,7 @@ function fold(line: string): string {
   return parts.join('\r\n ');
 }
 
-function rrule(med: Medicine): string {
+export function rrule(med: Medicine): string {
   const f = med.frequency;
   let rule =
     f.kind === 'daily'
@@ -51,7 +51,7 @@ function rrule(med: Medicine): string {
 }
 
 /** First date ≥ startDate the medicine is due on (DTSTART must be an occurrence). */
-function firstDay(med: Medicine): string | null {
+export function firstDay(med: Medicine): string | null {
   for (let i = 0, d = med.startDate; i < 7; i++, d = addDays(d, 1)) {
     if (isActiveOn(med, d)) return d;
   }
