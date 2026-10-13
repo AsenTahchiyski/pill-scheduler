@@ -7,7 +7,7 @@ import { PersonFilter } from '../components/PersonFilter';
 import { Segmented } from '../components/Segmented';
 import { NumberInput } from '../components/NumberInput';
 import { Stepper } from '../components/Stepper';
-import { TimeInput } from '../components/TimeInput';
+import { TimeWheel } from '../components/TimeWheel';
 import { deleteMedicine, saveMedicine } from '../db/db';
 import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
 import { cx } from '../lib/cx';
@@ -612,10 +612,10 @@ function TimesEditor({
   return (
     <Field group label={t('med.times')}>
       <div className="grid gap-2">
-        <div className={hourFormat === '12h' ? 'grid gap-2' : 'grid grid-cols-2 gap-2'}>
+        <div className="flex flex-wrap gap-2">
           {times.map((time, i) => (
             <div key={i} className="flex items-center gap-1">
-              <TimeInput
+              <TimeWheel
                 value={time}
                 hourFormat={hourFormat}
                 onChange={(v) => onChange(times.map((x, j) => (j === i ? v : x)))}

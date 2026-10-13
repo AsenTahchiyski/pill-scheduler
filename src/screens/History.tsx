@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
+import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { PersonDot, PersonFilter } from '../components/PersonFilter';
+import { deleteDoseLog } from '../db/db';
 import type { DoseLog, Medicine, Person, Settings } from '../db/types';
 import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
@@ -21,6 +24,7 @@ export function HistoryScreen({ settings, people, medicines, doses }: Props) {
   const t = useT();
   const lang = useLang();
   const [personId, setPersonId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<DoseLog | null>(null);
 
   const days = useMemo(() => {
     const today = todayStr();
@@ -88,6 +92,18 @@ export function HistoryScreen({ settings, people, medicines, doses }: Props) {
                         <span className="ml-auto text-xs text-ink-dim shrink-0">
                           {t(status ? `history.${status}` : 'history.missed')}
                         </span>
+                        {e.log ? (
+                          <button
+                            type="button"
+                            aria-label={t('common.delete')}
+                            onClick={() => setDeleting(e.log ?? null)}
+                            className="h-8 w-8 -my-1 shrink-0 grid place-items-center text-ink-dim hover:text-ink"
+                          >
+                            <Icon name="trash" size={16} />
+                          </button>
+                        ) : (
+                          <span className="w-8 shrink-0" />
+                        )}
                       </li>
                     );
                   })}
@@ -97,6 +113,33 @@ export function HistoryScreen({ settings, people, medicines, doses }: Props) {
           );
         })}
       </div>
+
+      <Modal open={deleting !== null} onClose={() => setDeleting(null)} title={t('history.delete.title')}>
+        {deleting && (
+          <div className="grid gap-4">
+            <p className="text-sm text-ink-dim">
+              {t('history.delete.sub', {
+                name: deleting.medName,
+                time: formatTime(deleting.time, settings.hourFormat)
+              })}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setDeleting(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={async () => {
+                  await deleteDoseLog(deleting.id);
+                  setDeleting(null);
+                }}
+              >
+                {t('common.delete')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

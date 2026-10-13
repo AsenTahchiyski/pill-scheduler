@@ -8,7 +8,7 @@ import { Field } from './Field';
 import { Icon } from './Icon';
 import { NumberInput } from './NumberInput';
 import { PersonFilter } from './PersonFilter';
-import { TimeInput } from './TimeInput';
+import { TimeWheel } from './TimeWheel';
 
 /** Settings section: each person's meals (start + duration) and bedtime. */
 export function MealSchedule({ people, hourFormat }: { people: Person[]; hourFormat: HourFormat }) {
@@ -72,7 +72,7 @@ function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourF
               <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
                 <div className="grid gap-1">
                   <span className="text-xs text-ink-dim">{t('people.mealTime')}</span>
-                  <TimeInput
+                  <TimeWheel
                     value={m.time}
                     hourFormat={hourFormat}
                     ariaLabel={t('people.mealTime')}
@@ -114,7 +114,7 @@ function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourF
       </Field>
 
       <Field group label={t('people.bedtime')}>
-        <TimeInput
+        <TimeWheel
           value={draft.bedtime}
           hourFormat={hourFormat}
           ariaLabel={t('people.bedtime')}

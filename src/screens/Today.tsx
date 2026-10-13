@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { PersonDot, PersonFilter } from '../components/PersonFilter';
-import { setDoseStatus } from '../db/db';
+import { TimeWheel } from '../components/TimeWheel';
+import { setDoseStatus, setDoseTakenAt } from '../db/db';
 import type { DoseLog, DoseStatus, Medicine, Person, Settings } from '../db/types';
 import { notificationsSupported } from '../hooks/useReminders';
 import { useNow } from '../hooks/useNow';
@@ -10,7 +12,7 @@ import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
 import { entryDose, relationLabel } from '../lib/labels';
 import { dayEntries, type DayEntry } from '../lib/schedule';
-import { addDays, daysBetween, formatDate, formatTime, todayStr } from '../lib/time';
+import { addDays, daysBetween, formatDate, formatTime, parseDate, todayStr } from '../lib/time';
 
 interface Props {
   settings: Settings;
@@ -28,6 +30,7 @@ export function TodayScreen({ settings, people, medicines, doses, onAddMedicine,
   const today = todayStr();
   const [date, setDate] = useState(today);
   const [personId, setPersonId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<DoseLog | null>(null);
 
   const entries = useMemo(
     () =>
@@ -138,11 +141,22 @@ export function TodayScreen({ settings, people, medicines, doses, onAddMedicine,
                 overdue={date < today || (date === today && e.time < nowMin)}
                 isNext={e.key === nextKey}
                 canMark={date <= today}
+                onEditTime={setEditing}
               />
             ))}
           </ul>
         )}
       </div>
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title={t('today.editTime')}>
+        {editing && (
+          <TakenTimeEditor
+            log={editing}
+            hourFormat={settings.hourFormat}
+            onDone={() => setEditing(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
@@ -153,7 +167,8 @@ function DoseRow({
   showPerson,
   overdue,
   isNext,
-  canMark
+  canMark,
+  onEditTime
 }: {
   entry: DayEntry;
   settings: Settings;
@@ -161,6 +176,7 @@ function DoseRow({
   overdue: boolean;
   isNext: boolean;
   canMark: boolean;
+  onEditTime: (log: DoseLog) => void;
 }) {
   const t = useT();
   const lang = useLang();
@@ -204,11 +220,13 @@ function DoseRow({
           </div>
         )}
         {status === 'taken' && e.log && (
-          <div className="text-xs text-accent">
-            {t('today.taken', {
-              time: formatTime(new Date(e.log.at).getHours() * 60 + new Date(e.log.at).getMinutes(), settings.hourFormat)
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => e.log && onEditTime(e.log)}
+            className="justify-self-start text-xs text-accent underline decoration-dotted underline-offset-2"
+          >
+            {t('today.taken', { time: formatTime(minutesOf(e.log.at), settings.hourFormat) })}
+          </button>
         )}
         {status === 'skipped' && <div className="text-xs text-ink-dim">{t('today.skipped')}</div>}
       </div>
@@ -244,5 +262,45 @@ function DoseRow({
         </div>
       )}
     </li>
+  );
+}
+
+const minutesOf = (ms: number) => {
+  const d = new Date(ms);
+  return d.getHours() * 60 + d.getMinutes();
+};
+
+function TakenTimeEditor({
+  log,
+  hourFormat,
+  onDone
+}: {
+  log: DoseLog;
+  hourFormat: Settings['hourFormat'];
+  onDone: () => void;
+}) {
+  const t = useT();
+  const [time, setTime] = useState(minutesOf(log.at));
+  const save = async () => {
+    // The taken time is set on the dose's own day.
+    const d = parseDate(log.date);
+    d.setHours(Math.floor(time / 60), time % 60, 0, 0);
+    await setDoseTakenAt(log.id, d.getTime());
+    onDone();
+  };
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm text-ink-dim">
+        {log.medName}
+        {log.dose && ` · ${log.dose}`}
+      </p>
+      <TimeWheel value={time} onChange={setTime} hourFormat={hourFormat} className="justify-self-center" />
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onDone}>
+          {t('common.cancel')}
+        </Button>
+        <Button onClick={save}>{t('common.save')}</Button>
+      </div>
+    </div>
   );
 }

@@ -56,6 +56,7 @@ const en: Dict = {
   'today.progress': '{done} of {total} taken',
   'today.notifOff': 'Reminders are off — enable notifications in Settings.',
   'today.removed': 'removed',
+  'today.editTime': 'Time taken',
 
   'meds.title': 'Medicines',
   'meds.add': 'Add medicine',
@@ -114,6 +115,8 @@ const en: Dict = {
   'history.missed': 'Not marked',
   'history.summary': '{taken}/{total} taken',
   'history.nothing': 'Nothing scheduled',
+  'history.delete.title': 'Delete this record?',
+  'history.delete.sub': 'The mark for {name} at {time} will be removed.',
 
   'people.title': 'People',
   'people.me': 'Me',
@@ -276,6 +279,7 @@ const bg: Dict = {
   'today.progress': '{done} от {total} взети',
   'today.notifOff': 'Напомнянията са изключени — разрешете известия в Настройки.',
   'today.removed': 'премахнато',
+  'today.editTime': 'Час на приемане',
 
   'meds.title': 'Лекарства',
   'meds.add': 'Добави лекарство',
@@ -334,6 +338,8 @@ const bg: Dict = {
   'history.missed': 'Неотбелязано',
   'history.summary': '{taken}/{total} взети',
   'history.nothing': 'Нищо не е планирано',
+  'history.delete.title': 'Да се изтрие ли записът?',
+  'history.delete.sub': 'Отметката за {name} в {time} ще бъде премахната.',
 
   'people.title': 'Хора',
   'people.me': 'Аз',

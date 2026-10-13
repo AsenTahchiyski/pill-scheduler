@@ -182,6 +182,15 @@ export async function setDoseStatus(
   });
 }
 
+/** Changes when a recorded dose was taken (epoch ms). */
+export async function setDoseTakenAt(id: string, at: number): Promise<void> {
+  await db.doses.update(id, { at });
+}
+
+export async function deleteDoseLog(id: string): Promise<void> {
+  await db.doses.delete(id);
+}
+
 export async function isDatabaseEmpty(): Promise<boolean> {
   const counts = await Promise.all([
     db.settings.count(),
