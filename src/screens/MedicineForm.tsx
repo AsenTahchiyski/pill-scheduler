@@ -7,7 +7,7 @@ import { PersonFilter } from '../components/PersonFilter';
 import { Segmented } from '../components/Segmented';
 import { NumberInput } from '../components/NumberInput';
 import { Stepper } from '../components/Stepper';
-import { TimeWheel } from '../components/TimeWheel';
+import { TimeInput } from '../components/TimeInput';
 import { deleteMedicine, saveMedicine } from '../db/db';
 import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
 import { cx } from '../lib/cx';
@@ -457,7 +457,6 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         {timing.relation === 'none' && (
           <TimesEditor
             times={timing.times}
-            hourFormat={hourFormat}
             editableCount={timing.often === 'custom'}
             onChange={(times) => setTiming({ ...timing, times })}
           />
@@ -599,12 +598,10 @@ function WeekdayPicker({
 
 function TimesEditor({
   times,
-  hourFormat,
   editableCount,
   onChange
 }: {
   times: number[];
-  hourFormat: HourFormat;
   editableCount: boolean;
   onChange: (t: number[]) => void;
 }) {
@@ -615,9 +612,8 @@ function TimesEditor({
         <div className="flex flex-wrap gap-2">
           {times.map((time, i) => (
             <div key={i} className="flex items-center gap-1">
-              <TimeWheel
+              <TimeInput
                 value={time}
-                hourFormat={hourFormat}
                 onChange={(v) => onChange(times.map((x, j) => (j === i ? v : x)))}
               />
               {editableCount && times.length > 1 && (

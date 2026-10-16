@@ -57,6 +57,7 @@ const en: Dict = {
   'today.notifOff': 'Reminders are off — enable notifications in Settings.',
   'today.removed': 'removed',
   'today.editTime': 'Time taken',
+  'today.editDate': 'Date taken',
 
   'meds.title': 'Medicines',
   'meds.add': 'Add medicine',
@@ -280,6 +281,7 @@ const bg: Dict = {
   'today.notifOff': 'Напомнянията са изключени — разрешете известия в Настройки.',
   'today.removed': 'премахнато',
   'today.editTime': 'Час на приемане',
+  'today.editDate': 'Дата на приемане',
 
   'meds.title': 'Лекарства',
   'meds.add': 'Добави лекарство',

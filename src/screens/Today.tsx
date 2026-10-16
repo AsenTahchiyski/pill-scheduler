@@ -3,7 +3,7 @@ import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { PersonDot, PersonFilter } from '../components/PersonFilter';
-import { TimeWheel } from '../components/TimeWheel';
+import { TimeInput } from '../components/TimeInput';
 import { setDoseStatus, setDoseTakenAt } from '../db/db';
 import type { DoseLog, DoseStatus, Medicine, Person, Settings } from '../db/types';
 import { notificationsSupported } from '../hooks/useReminders';
@@ -12,7 +12,7 @@ import { cx } from '../lib/cx';
 import { LOCALE, useLang, useT } from '../lib/i18n';
 import { entryDose, relationLabel } from '../lib/labels';
 import { dayEntries, type DayEntry } from '../lib/schedule';
-import { addDays, daysBetween, formatDate, formatTime, parseDate, todayStr } from '../lib/time';
+import { addDays, daysBetween, formatDate, formatTime, parseDate, toDateStr, todayStr } from '../lib/time';
 
 interface Props {
   settings: Settings;
@@ -149,13 +149,7 @@ export function TodayScreen({ settings, people, medicines, doses, onAddMedicine,
       </div>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={t('today.editTime')}>
-        {editing && (
-          <TakenTimeEditor
-            log={editing}
-            hourFormat={settings.hourFormat}
-            onDone={() => setEditing(null)}
-          />
-        )}
+        {editing && <TakenTimeEditor log={editing} onDone={() => setEditing(null)} />}
       </Modal>
     </div>
   );
@@ -225,7 +219,12 @@ function DoseRow({
             onClick={() => e.log && onEditTime(e.log)}
             className="justify-self-start text-xs text-accent underline decoration-dotted underline-offset-2"
           >
-            {t('today.taken', { time: formatTime(minutesOf(e.log.at), settings.hourFormat) })}
+            {t('today.taken', {
+              time:
+                (toDateStr(new Date(e.log.at)) !== e.log.date
+                  ? `${formatDate(toDateStr(new Date(e.log.at)), LOCALE[lang], { day: 'numeric', month: 'short' })}, `
+                  : '') + formatTime(minutesOf(e.log.at), settings.hourFormat)
+            })}
           </button>
         )}
         {status === 'skipped' && <div className="text-xs text-ink-dim">{t('today.skipped')}</div>}
@@ -270,20 +269,12 @@ const minutesOf = (ms: number) => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-function TakenTimeEditor({
-  log,
-  hourFormat,
-  onDone
-}: {
-  log: DoseLog;
-  hourFormat: Settings['hourFormat'];
-  onDone: () => void;
-}) {
+function TakenTimeEditor({ log, onDone }: { log: DoseLog; onDone: () => void }) {
   const t = useT();
+  const [day, setDay] = useState(toDateStr(new Date(log.at)));
   const [time, setTime] = useState(minutesOf(log.at));
   const save = async () => {
-    // The taken time is set on the dose's own day.
-    const d = parseDate(log.date);
+    const d = parseDate(day);
     d.setHours(Math.floor(time / 60), time % 60, 0, 0);
     await setDoseTakenAt(log.id, d.getTime());
     onDone();
@@ -294,7 +285,17 @@ function TakenTimeEditor({
         {log.medName}
         {log.dose && ` · ${log.dose}`}
       </p>
-      <TimeWheel value={time} onChange={setTime} hourFormat={hourFormat} className="justify-self-center" />
+      <div className="flex justify-center gap-2">
+        <input
+          type="date"
+          className="input w-auto px-3"
+          value={day}
+          max={todayStr()}
+          aria-label={t('today.editDate')}
+          onChange={(e) => e.target.value && setDay(e.target.value)}
+        />
+        <TimeInput value={time} onChange={setTime} ariaLabel={t('today.editTime')} />
+      </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>
           {t('common.cancel')}

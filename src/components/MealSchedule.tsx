@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { savePerson } from '../db/db';
-import type { HourFormat, Meal, Person } from '../db/types';
+import type { Meal, Person } from '../db/types';
 import { useT } from '../lib/i18n';
 import { uid } from '../lib/uid';
 import { Button } from './Button';
@@ -8,10 +8,10 @@ import { Field } from './Field';
 import { Icon } from './Icon';
 import { NumberInput } from './NumberInput';
 import { PersonFilter } from './PersonFilter';
-import { TimeWheel } from './TimeWheel';
+import { TimeInput } from './TimeInput';
 
 /** Settings section: each person's meals (start + duration) and bedtime. */
-export function MealSchedule({ people, hourFormat }: { people: Person[]; hourFormat: HourFormat }) {
+export function MealSchedule({ people }: { people: Person[] }) {
   const t = useT();
   const [personId, setPersonId] = useState(people[0]?.id);
   const person = people.find((p) => p.id === personId) ?? people[0];
@@ -29,12 +29,12 @@ export function MealSchedule({ people, hourFormat }: { people: Person[]; hourFor
         onChange={(id) => id && setPersonId(id)}
       />
       {/* Remount per person so the local draft starts from their data. */}
-      <PersonMeals key={person.id} person={person} hourFormat={hourFormat} />
+      <PersonMeals key={person.id} person={person} />
     </div>
   );
 }
 
-function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourFormat }) {
+function PersonMeals({ person }: { person: Person }) {
   const t = useT();
   // Inputs edit a local draft (no caret jumps from async DB round-trips);
   // every change is saved right away.
@@ -72,9 +72,8 @@ function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourF
               <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
                 <div className="grid gap-1">
                   <span className="text-xs text-ink-dim">{t('people.mealTime')}</span>
-                  <TimeWheel
+                  <TimeInput
                     value={m.time}
-                    hourFormat={hourFormat}
                     ariaLabel={t('people.mealTime')}
                     onChange={(time) => setMeal(m.id, { time })}
                   />
@@ -114,9 +113,8 @@ function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourF
       </Field>
 
       <Field group label={t('people.bedtime')}>
-        <TimeWheel
+        <TimeInput
           value={draft.bedtime}
-          hourFormat={hourFormat}
           ariaLabel={t('people.bedtime')}
           onChange={(bedtime) => update({ ...draft, bedtime })}
         />

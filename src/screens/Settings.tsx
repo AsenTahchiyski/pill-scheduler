@@ -116,7 +116,7 @@ export function SettingsScreen({ data }: Props) {
         </header>
 
         <section className={card}>
-          <MealSchedule people={data.people} hourFormat={settings.hourFormat} />
+          <MealSchedule people={data.people} />
         </section>
 
         <section className={card}>
