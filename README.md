@@ -4,6 +4,11 @@ A mobile-friendly **PWA** for scheduling medicines, prescription or not, for the
 whole family. No backend: everything is stored on the device (IndexedDB via
 Dexie). Bulgarian and English.
 
+<img width="216" height="468" alt="Screenshot_20261023_164926_Brave" src="https://github.com/user-attachments/assets/a2274f8d-0857-4391-86b8-b0c2ef1569c9" />
+<img width="216" height="468" alt="Screenshot_20261023_164942_Brave" src="https://github.com/user-attachments/assets/d95f9508-b280-465b-8ecb-3cdcebfbff36" />
+<img width="216" height="468" alt="Screenshot_20261023_164953_Brave" src="https://github.com/user-attachments/assets/98ca858e-1b94-4a32-b846-391ed182c9b7" />
+<img width="216" height="468" alt="Screenshot_20261023_165010_Brave" src="https://github.com/user-attachments/assets/8d1475a9-cc32-4a75-9d89-ff845bb27148" />
+
 ## Features
 
 - **Several people** (you, a child, a parent…), each with their own medicines.
