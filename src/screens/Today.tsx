@@ -3,9 +3,10 @@ import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { PersonDot, PersonFilter } from '../components/PersonFilter';
+import { DateInput } from '../components/DateInput';
 import { TimeInput } from '../components/TimeInput';
 import { setDoseStatus, setDoseTakenAt } from '../db/db';
-import type { DoseLog, DoseStatus, Medicine, Person, Settings } from '../db/types';
+import type { DoseLog, DoseStatus, HourFormat, Medicine, Person, Settings } from '../db/types';
 import { notificationsSupported } from '../hooks/useReminders';
 import { useNow } from '../hooks/useNow';
 import { cx } from '../lib/cx';
@@ -149,7 +150,7 @@ export function TodayScreen({ settings, people, medicines, doses, onAddMedicine,
       </div>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={t('today.editTime')}>
-        {editing && <TakenTimeEditor log={editing} onDone={() => setEditing(null)} />}
+        {editing && <TakenTimeEditor log={editing} hourFormat={settings.hourFormat} onDone={() => setEditing(null)} />}
       </Modal>
     </div>
   );
@@ -269,7 +270,15 @@ const minutesOf = (ms: number) => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-function TakenTimeEditor({ log, onDone }: { log: DoseLog; onDone: () => void }) {
+function TakenTimeEditor({
+  log,
+  hourFormat,
+  onDone
+}: {
+  log: DoseLog;
+  hourFormat: HourFormat;
+  onDone: () => void;
+}) {
   const t = useT();
   const [day, setDay] = useState(toDateStr(new Date(log.at)));
   const [time, setTime] = useState(minutesOf(log.at));
@@ -286,15 +295,8 @@ function TakenTimeEditor({ log, onDone }: { log: DoseLog; onDone: () => void }) 
         {log.dose && ` · ${log.dose}`}
       </p>
       <div className="flex justify-center gap-2">
-        <input
-          type="date"
-          className="input w-auto px-3"
-          value={day}
-          max={todayStr()}
-          aria-label={t('today.editDate')}
-          onChange={(e) => e.target.value && setDay(e.target.value)}
-        />
-        <TimeInput value={time} onChange={setTime} ariaLabel={t('today.editTime')} />
+        <DateInput value={day} max={todayStr()} onChange={setDay} ariaLabel={t('today.editDate')} />
+        <TimeInput value={time} onChange={setTime} hourFormat={hourFormat} ariaLabel={t('today.editTime')} />
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>

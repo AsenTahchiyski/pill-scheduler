@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { savePerson } from '../db/db';
-import type { Meal, Person } from '../db/types';
+import type { HourFormat, Meal, Person } from '../db/types';
 import { useT } from '../lib/i18n';
 import { uid } from '../lib/uid';
 import { Button } from './Button';
@@ -11,7 +11,7 @@ import { PersonFilter } from './PersonFilter';
 import { TimeInput } from './TimeInput';
 
 /** Settings section: each person's meals (start + duration) and bedtime. */
-export function MealSchedule({ people }: { people: Person[] }) {
+export function MealSchedule({ people, hourFormat }: { people: Person[]; hourFormat: HourFormat }) {
   const t = useT();
   const [personId, setPersonId] = useState(people[0]?.id);
   const person = people.find((p) => p.id === personId) ?? people[0];
@@ -29,12 +29,12 @@ export function MealSchedule({ people }: { people: Person[] }) {
         onChange={(id) => id && setPersonId(id)}
       />
       {/* Remount per person so the local draft starts from their data. */}
-      <PersonMeals key={person.id} person={person} />
+      <PersonMeals key={person.id} person={person} hourFormat={hourFormat} />
     </div>
   );
 }
 
-function PersonMeals({ person }: { person: Person }) {
+function PersonMeals({ person, hourFormat }: { person: Person; hourFormat: HourFormat }) {
   const t = useT();
   // Inputs edit a local draft (no caret jumps from async DB round-trips);
   // every change is saved right away.
@@ -74,6 +74,7 @@ function PersonMeals({ person }: { person: Person }) {
                   <span className="text-xs text-ink-dim">{t('people.mealTime')}</span>
                   <TimeInput
                     value={m.time}
+                    hourFormat={hourFormat}
                     ariaLabel={t('people.mealTime')}
                     onChange={(time) => setMeal(m.id, { time })}
                   />
@@ -115,6 +116,7 @@ function PersonMeals({ person }: { person: Person }) {
       <Field group label={t('people.bedtime')}>
         <TimeInput
           value={draft.bedtime}
+          hourFormat={hourFormat}
           ariaLabel={t('people.bedtime')}
           onChange={(bedtime) => update({ ...draft, bedtime })}
         />

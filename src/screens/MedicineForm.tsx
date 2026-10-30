@@ -7,6 +7,7 @@ import { PersonFilter } from '../components/PersonFilter';
 import { Segmented } from '../components/Segmented';
 import { NumberInput } from '../components/NumberInput';
 import { Stepper } from '../components/Stepper';
+import { DateInput } from '../components/DateInput';
 import { TimeInput } from '../components/TimeInput';
 import { deleteMedicine, saveMedicine } from '../db/db';
 import type { DoseUnit, FoodRelation, Frequency, HourFormat, Medicine, Person, Timing } from '../db/types';
@@ -303,21 +304,14 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('med.start')}>
-            <input
-              type="date"
-              className="input"
-              value={d.startDate}
-              onChange={(e) => e.target.value && set({ startDate: e.target.value })}
-            />
+            <DateInput value={d.startDate} onChange={(startDate) => set({ startDate })} />
           </Field>
           {endMode === 'until' && (
             <Field label={t('med.endDate')}>
-              <input
-                type="date"
-                className="input"
-                value={endDate ?? ''}
+              <DateInput
+                value={endDate ?? d.startDate}
                 min={d.startDate}
-                onChange={(e) => e.target.value && set({ endDate: e.target.value })}
+                onChange={(endDate) => set({ endDate })}
               />
             </Field>
           )}
@@ -456,6 +450,7 @@ export function MedicineForm({ initial, people, defaultPersonId, hourFormat, onD
 
         {timing.relation === 'none' && (
           <TimesEditor
+            hourFormat={hourFormat}
             times={timing.times}
             editableCount={timing.often === 'custom'}
             onChange={(times) => setTiming({ ...timing, times })}
@@ -599,10 +594,12 @@ function WeekdayPicker({
 function TimesEditor({
   times,
   editableCount,
+  hourFormat,
   onChange
 }: {
   times: number[];
   editableCount: boolean;
+  hourFormat: HourFormat;
   onChange: (t: number[]) => void;
 }) {
   const t = useT();
@@ -614,6 +611,7 @@ function TimesEditor({
             <div key={i} className="flex items-center gap-1">
               <TimeInput
                 value={time}
+                hourFormat={hourFormat}
                 onChange={(v) => onChange(times.map((x, j) => (j === i ? v : x)))}
               />
               {editableCount && times.length > 1 && (
