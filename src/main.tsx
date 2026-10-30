@@ -4,6 +4,7 @@ import { App } from './App';
 import { ensureSettings, isDatabaseEmpty, restoreFromPayload } from './db/db';
 import { parsePayload, readLocalBackup, requestPersistentStorage } from './lib/backup';
 import { readDefaultBackupFile } from './lib/fileSync';
+import { initSync } from './lib/syncFile';
 import { applyAccent, applyThemeMode } from './theme/ThemeProvider';
 import './index.css';
 
@@ -28,6 +29,7 @@ async function bootstrap() {
   applyAccent(settings.accentColor);
   applyThemeMode(settings.themeMode);
   document.documentElement.lang = settings.language;
+  void initSync();
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

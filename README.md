@@ -51,8 +51,30 @@ alternative for Google Calendar users.
 ## Data safety
 
 The same layered approach as fasting-timer: persistent-storage request, an
-automatic localStorage mirror and backup file (OPFS, or a file you choose on
-Chromium), and manual JSON export/import.
+automatic localStorage mirror and a private backup file in browser storage
+(OPFS), and manual JSON export/import.
+
+### Sync file
+
+In Chromium desktop browsers (Chrome, Edge), Settings → Data → Sync file links
+the app to a JSON file you choose. Settings, people, medicines and dose history
+are kept in that file and changes flow both ways, so several devices that link
+the same file share one data set. The app itself only reads and writes the
+local file; moving it between devices is up to a sync client you already run,
+such as Synology Drive, Google Drive, OneDrive, Dropbox or Syncthing. Data then
+leaves your device only through that client.
+
+- On the first device choose "Create new…" and save the file in the synced
+  folder; on the others choose "Open existing…" and pick the same file. Linking
+  an existing file merges it with the data already on the device; a device with
+  no medicines or dose history yet simply adopts the file.
+- The file is re-checked on every change, whenever the app comes back to the
+  foreground, and on "Sync now". If both sides changed since the last sync, the
+  newer one wins.
+- With Google Drive, prefer "Mirror files" mode (or mark the file "Available
+  offline"); with OneDrive, set the file to "Always keep on this device".
+- After a browser restart, tap "Allow access" once to resume syncing.
+- Mobile browsers can't link a file; use Export / Import there.
 
 ## Develop
 

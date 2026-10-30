@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '../components/Button';
 import { ColorSwatch } from '../components/ColorSwatch';
 import { Field } from '../components/Field';
@@ -11,17 +11,18 @@ import { db, restoreFromPayload, updateSettings } from '../db/db';
 import type { ExportPayload, HourFormat, Language, Settings, ThemeMode } from '../db/types';
 import { notificationsSupported, showNotification } from '../hooks/useReminders';
 import { buildPayload, downloadPayload, downloadText, parsePayload, type PayloadData } from '../lib/backup';
-import {
-  chooseBackupFile,
-  clearBackupFile,
-  getBackupTarget,
-  requestBackupFileAccess,
-  supportsFilePicker,
-  writeBackupFile,
-  type BackupTarget
-} from '../lib/fileSync';
+import { useSyncNotice, useSyncState } from '../hooks/useSync';
 import { buildIcs } from '../lib/ics';
-import { useLang, useT } from '../lib/i18n';
+import { LOCALE, useLang, useT } from '../lib/i18n';
+import {
+  clearSyncNotice,
+  createSyncFile,
+  disconnectSync,
+  liveSyncSupported,
+  openSyncFile,
+  reconnectSync,
+  syncNow
+} from '../lib/syncFile';
 
 interface Props {
   data: PayloadData;
@@ -33,15 +34,10 @@ export function SettingsScreen({ data }: Props) {
   const { settings } = data;
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState<ExportPayload | null>(null);
-  const [backupTarget, setBackupTarget] = useState<BackupTarget | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() =>
     notificationsSupported() ? Notification.permission : 'unsupported'
   );
   const { flash, node: toast } = useToast();
-
-  useEffect(() => {
-    void getBackupTarget().then(setBackupTarget);
-  }, []);
 
   const set = (patch: Partial<Settings>) => updateSettings(patch);
   const reminderMeds = data.medicines.filter((m) => m.reminders);
@@ -53,29 +49,6 @@ export function SettingsScreen({ data }: Props) {
   const exportCalendar = () => {
     downloadText(buildIcs(lang, data.people, reminderMeds), 'pill-scheduler.ics', 'text/calendar');
     flash(t('settings.calendar.done'));
-  };
-
-  const handleChooseBackupFile = async () => {
-    const name = await chooseBackupFile();
-    if (!name) return; // cancelled
-    await writeBackupFile(buildPayload(data));
-    setBackupTarget(await getBackupTarget());
-    flash(t('settings.toast.backupSet'));
-  };
-
-  const handleDefaultBackupFile = async () => {
-    await clearBackupFile();
-    await writeBackupFile(buildPayload(data));
-    setBackupTarget(await getBackupTarget());
-    flash(t('settings.toast.backupDefault'));
-  };
-
-  const handleAllowBackupAccess = async () => {
-    if (await requestBackupFileAccess()) {
-      await writeBackupFile(buildPayload(data));
-      flash(t('settings.toast.backupSet'));
-    }
-    setBackupTarget(await getBackupTarget());
   };
 
   const handleFile = async (file: File) => {
@@ -182,35 +155,7 @@ export function SettingsScreen({ data }: Props) {
             <p className="text-sm text-ink-dim mt-1">{t('settings.dataSub')}</p>
           </div>
 
-          {backupTarget && (
-            <div className="grid gap-2 rounded-xl border border-line bg-surface p-4">
-              <div className="text-sm font-medium">{t('settings.backup.label')}</div>
-              <div className="text-sm text-ink-dim break-all">
-                {backupTarget.mode === 'file'
-                  ? backupTarget.name
-                  : t('settings.backup.defaultPath', { name: backupTarget.name })}
-              </div>
-              <p className="text-xs text-ink-dim">{t('settings.backup.hint')}</p>
-              {backupTarget.mode === 'file' && backupTarget.permission !== 'granted' && (
-                <>
-                  <p className="text-xs text-ink-dim">{t('settings.backup.needsPermission')}</p>
-                  <Button onClick={handleAllowBackupAccess}>{t('settings.backup.allow')}</Button>
-                </>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                {supportsFilePicker() && (
-                  <Button variant="outline" onClick={handleChooseBackupFile}>
-                    {t('settings.backup.choose')}
-                  </Button>
-                )}
-                {backupTarget.mode === 'file' && (
-                  <Button variant="outline" onClick={handleDefaultBackupFile}>
-                    {t('settings.backup.useDefault')}
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
+          <SyncBox settings={settings} />
 
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -262,6 +207,83 @@ export function SettingsScreen({ data }: Props) {
       </Modal>
 
       {toast}
+    </div>
+  );
+}
+
+function SyncBox({ settings }: { settings: Settings }) {
+  const t = useT();
+  const lang = useLang();
+  const sync = useSyncState();
+  const notice = useSyncNotice();
+  const [error, setError] = useState<string | null>(null);
+
+  const run = (fn: () => Promise<void>) => async () => {
+    setError(null);
+    clearSyncNotice();
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const status =
+    sync.kind === 'connected'
+      ? sync.lastSyncAt
+        ? t('sync.syncedAt', {
+            when: new Date(sync.lastSyncAt).toLocaleString(LOCALE[lang], {
+              day: 'numeric',
+              month: 'short',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: settings.hourFormat === '12h'
+            })
+          })
+        : t('sync.connected')
+      : sync.kind === 'needs-permission'
+        ? t('sync.needsPermission')
+        : sync.kind === 'error'
+          ? t(sync.message)
+          : null;
+
+  return (
+    <div className="grid gap-2 rounded-xl border border-line bg-surface p-4">
+      <div className="text-sm font-medium">{t('sync.title')}</div>
+      <p className="text-xs text-ink-dim">{t('sync.hint')}</p>
+      {!liveSyncSupported ? (
+        <p className="text-xs text-ink-dim">{t('sync.unsupported')}</p>
+      ) : sync.kind === 'off' ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={run(createSyncFile)}>
+            {t('sync.create')}
+          </Button>
+          <Button variant="outline" onClick={run(openSyncFile)}>
+            {t('sync.open')}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="text-sm break-all">
+            <span className="font-medium">{sync.fileName}</span>
+            <span className="text-ink-dim"> · {status}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {sync.kind === 'connected' ? (
+              <Button variant="outline" onClick={run(syncNow)}>
+                {t('sync.syncNow')}
+              </Button>
+            ) : (
+              <Button onClick={run(reconnectSync)}>{t('sync.reconnect')}</Button>
+            )}
+            <Button variant="ghost" onClick={run(disconnectSync)}>
+              {t('sync.disconnect')}
+            </Button>
+          </div>
+        </>
+      )}
+      {notice && <p className="text-xs text-accent">{t(notice)}</p>}
+      {error && <p className="text-xs text-[rgb(255,107,107)]">{error}</p>}
     </div>
   );
 }

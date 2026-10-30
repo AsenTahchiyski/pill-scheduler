@@ -1,5 +1,5 @@
 // File System Access API pieces that TypeScript's DOM lib doesn't ship yet
-// (WICG spec: showSaveFilePicker and per-handle permission queries).
+// (WICG spec: file pickers and per-handle permission queries).
 
 interface FileSystemHandlePermissionDescriptor {
   mode?: 'read' | 'readwrite';
@@ -22,8 +22,15 @@ interface SaveFilePickerOptions {
   }[];
 }
 
+interface OpenFilePickerOptions {
+  types?: SaveFilePickerOptions['types'];
+}
+
 interface Window {
   showSaveFilePicker?(
     options?: SaveFilePickerOptions
   ): Promise<FileSystemFileHandle>;
+  showOpenFilePicker?(
+    options?: OpenFilePickerOptions
+  ): Promise<FileSystemFileHandle[]>;
 }

@@ -22,7 +22,8 @@ There are no tests and no linter; `npm run typecheck` is the verification gate. 
 - **Dose log ids** are `${medicineId}|${date}|${minutes}` (`doseKey`). Logs snapshot the medicine name and dose so history survives edits and deletes. Logs that no longer match the schedule still show up for their day.
 - **Time model**: dates are local `YYYY-MM-DD` strings and clock times are minutes after midnight. Both are deliberately timezone-free. Helpers are in `src/lib/time.ts`.
 - **Reminders** (`src/hooks/useReminders.ts`) only run while the app is open (no web API schedules notifications for a closed app). The reliable path is the `.ics` export in `src/lib/ics.ts` (floating times, RRULE, VALARM, UTF-8 octet folding). `public/notification-click.js` is imported into the generated service worker.
-- **Backup**: same multi-layer scheme as fasting-timer (`main.tsx` bootstrap restore, `useAutoBackup`, `lib/backup.ts`, `lib/fileSync.ts`). The `ExportPayload` is `version: 2`; `parsePayload` upgrades older versions via `migratePayload`.
+- **Backup**: same multi-layer scheme as fasting-timer (`main.tsx` bootstrap restore, `useAutoBackup`, `lib/backup.ts`, `lib/fileSync.ts` for the OPFS file). The `ExportPayload` is `version: 2`; `parsePayload` upgrades older versions via `migratePayload`.
+- **Sync file** (`src/lib/syncFile.ts`): optional two-way sync with a user-chosen JSON file (File System Access API, Chromium only; record + handle in `kv` under `syncFile`), so several devices share one data set. The file is an `ExportPayload`. Three-way sync against `lastSynced` (canonical JSON with sorted keys), last-write-wins when both sides changed; records are matched across devices by `id`. When adding a synced setting, add it to `SYNCED_SETTINGS`.
 
 ## Conventions
 

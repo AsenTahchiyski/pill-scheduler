@@ -6,7 +6,7 @@ import { writeBackupFile } from '../lib/fileSync';
  * Mirrors the current data on every change, debounced so rapid edits (e.g.
  * typing a name) don't thrash storage. Two mirrors: localStorage (used by
  * bootstrap to auto-recover if IndexedDB is lost) and the backup JSON file
- * (user-chosen, or the default one in app storage).
+ * in app storage. The user-chosen sync file is handled by syncFile.ts.
  */
 export function useAutoBackup(data: PayloadData | undefined): void {
   const timer = useRef<number | undefined>(undefined);
